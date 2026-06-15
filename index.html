@@ -3,636 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Backrooms - True Horror Build</title>
+    <title>The Backrooms</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none; }
-        
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 0.1s; background: radial-gradient(circle, transparent 20%, rgba(180, 0, 0, 0.8) 130%); opacity: 0; z-index: 5; }
-
-        #blocker { position: absolute; width: 100%; height: 100%; background-color: rgba(15,15,5,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #eedd88; pointer-events: auto; z-index: 30; }
-        #instructions { font-size: 18px; cursor: pointer; text-align: center; max-width: 600px; padding: 30px; border: 2px solid #b8a158; background: rgba(30,30,10,0.8); box-shadow: 0 0 20px rgba(0,0,0,0.8); }
-        .glitch { font-size: 42px; color: #ccaa00; font-weight: bold; text-shadow: 2px 2px #ff0000, -2px -2px #0000ff; animation: glitch 1.2s infinite linear; letter-spacing: 4px; }
-        
-        #hud { position: absolute; top: 20px; left: 20px; color: #eedd88; font-size: 22px; text-shadow: 2px 2px 0 #000; display: none; z-index: 10; opacity: 0.8; }
-        #rec { position: absolute; top: 20px; right: 30px; color: #ff3333; font-size: 22px; font-weight: bold; animation: blink 1s infinite; display: none; z-index: 10; }
-        
-        #jumpscare { display: none; position: absolute; width: 100%; height: 100%; z-index: 50; flex-direction: column; align-items: center; justify-content: center; background-color: #000; color: #fff; font-size: 90px; font-weight: bold; text-align: center; text-shadow: 5px 5px 0 #f00, -5px -5px 0 #00f; }
-
-        /* Mobile Controls UI */
-        #mobile-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; display: none; }
-        #joystick-base { position: absolute; width: 110px; height: 110px; background: rgba(215, 202, 141, 0.15); border: 3px solid rgba(215, 202, 141, 0.4); border-radius: 50%; display: none; transform: translate(-50%, -50%); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 45px; height: 45px; background: rgba(215, 202, 141, 0.6); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
-
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
-        @keyframes glitch { 
-            0% { transform: translate(0) }
-            20% { transform: translate(-2px, 1px) }
-            40% { transform: translate(-1px, -2px) }
-            60% { transform: translate(2px, 2px) }
-            80% { transform: translate(1px, -1px) }
-            100% { transform: translate(0) }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: monospace;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Mobile UI Controls */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+        .row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        #sprint-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            background: rgba(200, 50, 50, 0.3);
+            border: 2px solid rgba(200, 50, 50, 0.6);
+            border-radius: 50%;
+            color: white;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <div id="vignette"></div>
-    <div id="jumpscare">LOST CONNECTION</div>
-    
-    <div id="mobile-ui">
-        <div id="joystick-base"><div id="joystick-stick"></div></div>
-    </div>
 
-    <div id="ui-layer">
-        <div id="hud">ZONE: <span id="level-text">0</span></div>
-        <div id="rec">● AUX REC</div>
-    </div>
-    
-    <div id="blocker">
-        <div id="instructions">
-            <p class="glitch">LEVEL 0</p>
-            <p id="desktop-text">WASD = Move | Mouse = Look | SHIFT = Sprint</p>
-            <p id="mobile-text" style="display: none;">Left Screen = Smooth Move & Sprint | Right Screen = Drag Look</p>
-            <p style="color: #b8a158; font-weight: bold; margin-top: 25px;">[ INITIALIZE SENSOR FEED ]</p>
+    <div id="mobile-controls">
+        <div class="row">
+            <div class="btn" id="btn-w">W</div>
+        </div>
+        <div class="row">
+            <div class="btn" id="btn-a">A</div>
+            <div class="btn" id="btn-s">S</div>
+            <div class="btn" id="btn-d">D</div>
         </div>
     </div>
+    <div id="sprint-btn">SPRINT</div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    <script>
+        // --- GAME CONFIGURATION ---
+        const GRID_SIZE = 3;
+        const MAP_WIDTH = 25;
+        const MAP_HEIGHT = 25;
+        const WALL_HEIGHT = 3.5;
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-        // --- 1. CORE SCENE SETUP ---
+        // --- ENGINE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xa5995e); 
-        scene.fog = new THREE.FogExp2(0xa5995e, 0.035); 
+        scene.fog = new THREE.FogExp2(0xd1c280, 0.07); // Yellowish hum fog
 
-        const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 60);
-        camera.position.y = 1.6;
-
-        const renderer = new THREE.WebGLRenderer({ powerPreference: "high-performance", antialias: false });
+        // FOV dropped to 55 for a cinematic, claustrophobic look
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        // preserveDrawingBuffer allows us to fake custom motion blur trails smoothly
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.autoClearColor = false; 
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. AUDIO SYNTHESIZER ENGINE ---
-        let audioCtx;
-        let humOsc, humGain;
-        let heartOsc, heartGain;
-        let monsterDroneOsc, monsterDroneGain;
-        let nextHeartbeatTime = 0;
+        // --- MOTION BLUR EFFECT SETUP ---
+        // A full-screen overlay mesh attached to the camera that creates a camera ghosting lag trail
+        const blurGeo = new THREE.PlaneGeometry(2, 2);
+        const blurMat = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.18, // Adjust this between 0.1 (heavy blur) and 0.3 (light blur)
+            blending: THREE.NormalBlending
+        });
+        const blurMesh = new THREE.Mesh(blurGeo, blurMat);
+        blurMesh.position.z = -0.1; 
+        camera.add(blurMesh);
+        scene.add(camera);
 
-        function initAudio() {
-            if(audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // Fluorescent Hum Sound
-            humOsc = audioCtx.createOscillator();
-            humOsc.type = 'sawtooth';
-            humOsc.frequency.value = 60; 
-            humGain = audioCtx.createGain();
-            humGain.gain.value = 0.05; 
-            const lowpass = audioCtx.createBiquadFilter();
-            lowpass.type = 'lowpass';
-            lowpass.frequency.value = 180;
-            humOsc.connect(lowpass).connect(humGain).connect(audioCtx.destination);
-            humOsc.start();
+        // --- TEXTURES (Retro & Sharp) ---
+        const textureLoader = new THREE.TextureLoader();
+        // Uses your uploaded wallpaper image name. Make sure image_780d3a.png is in your folder!
+        const wallTexture = textureLoader.load('image_780d3a.png', function(tex) {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(1, 1);
+            tex.minFilter = THREE.NearestFilter; // Sharp retro pixels
+            tex.magFilter = THREE.NearestFilter;
+        });
 
-            // Monster Proximity Heartbeat/Thumper Engine
-            heartGain = audioCtx.createGain();
-            heartGain.gain.value = 0.0;
-            heartGain.connect(audioCtx.destination);
+        const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.8 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0xa39458, roughness: 0.9 }); // Dull carpet
+        const ceilingMat = new THREE.MeshStandardMaterial({ color: 0xdfdfc1, roughness: 0.5 });
 
-            // Monster Detection Alarm Drone
-            monsterDroneOsc = audioCtx.createOscillator();
-            monsterDroneOsc.type = 'sawtooth';
-            monsterDroneOsc.frequency.value = 45;
-            monsterDroneGain = audioCtx.createGain();
-            monsterDroneGain.gain.value = 0.0;
-            
-            const droneFilter = audioCtx.createBiquadFilter();
-            droneFilter.type = 'lowpass';
-            droneFilter.frequency.value = 120;
-            
-            monsterDroneOsc.connect(droneFilter).connect(monsterDroneGain).connect(audioCtx.destination);
-            monsterDroneOsc.start();
-        }
-
-        function playHeartbeatSound(intensity) {
-            if (!audioCtx || audioCtx.state === 'suspended') return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(55, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.15);
-            
-            gain.gain.setValueAtTime(intensity * 0.4, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-            
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
-        }
-
-        function playJumpscareSound() {
-            if(!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.2);
-            
-            osc2.type = 'square';
-            osc2.frequency.setValueAtTime(85, audioCtx.currentTime);
-            osc2.frequency.linearRampToValueAtTime(140, audioCtx.currentTime + 0.8);
-            
-            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0);
-            
-            osc.connect(gainNode);
-            osc2.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            osc.start(); osc2.start();
-            osc.stop(audioCtx.currentTime + 2.0); osc2.stop(audioCtx.currentTime + 2.0);
-        }
-
-        // --- 3. CONTROLS SETUP ---
-        let isPlaying = false;
-        const blocker = document.getElementById('blocker');
-        const hud = document.getElementById('hud');
-        const rec = document.getElementById('rec');
-        
-        const controls = new PointerLockControls(camera, document.body);
-        const moveState = { forward: false, backward: false, left: false, right: false, sprint: false };
-        
-        let moveTouchId = null;
-        let lookTouchId = null;
-        const moveVector = new THREE.Vector2(0, 0);
-        let lastLookX = 0, lastLookY = 0;
-        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-
-        if (isMobile) {
-            document.getElementById('desktop-text').style.display = 'none';
-            document.getElementById('mobile-text').style.display = 'block';
-            document.getElementById('mobile-ui').style.display = 'block';
-
-            const jBase = document.getElementById('joystick-base');
-            const jStick = document.getElementById('joystick-stick');
-            let jStartX = 0, jStartY = 0;
-
-            document.addEventListener('touchstart', (e) => {
-                if(!isPlaying || isDead) return;
-                for(let i = 0; i < e.changedTouches.length; i++) {
-                    let touch = e.changedTouches[i];
-                    if(touch.clientX < window.innerWidth / 2 && moveTouchId === null) {
-                        moveTouchId = touch.identifier;
-                        jStartX = touch.clientX; jStartY = touch.clientY;
-                        jBase.style.left = jStartX + 'px';
-                        jBase.style.top = jStartY + 'px';
-                        jBase.style.display = 'block';
-                        jStick.style.transform = `translate(-50%, -50%)`;
-                    } else if(touch.clientX >= window.innerWidth / 2 && lookTouchId === null) {
-                        lookTouchId = touch.identifier;
-                        lastLookX = touch.clientX; lastLookY = touch.clientY;
-                    }
-                }
-            }, {passive: false});
-
-            document.addEventListener('touchmove', (e) => {
-                if(!isPlaying || isDead) return;
-                for(let i = 0; i < e.changedTouches.length; i++) {
-                    let touch = e.changedTouches[i];
-                    
-                    if(touch.identifier === moveTouchId) {
-                        let dx = touch.clientX - jStartX;
-                        let dy = touch.clientY - jStartY;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        const maxDist = 45; 
-                        
-                        if(dist > maxDist) {
-                            dx = (dx / dist) * maxDist;
-                            dy = (dy / dist) * maxDist;
-                        }
-                        
-                        jStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-                        
-                        // Push out all the way to auto sprint
-                        moveState.sprint = dist > 38;
-                        
-                        moveVector.x = dx / maxDist;
-                        moveVector.y = dy / maxDist;
-                        
-                    } else if(touch.identifier === lookTouchId) {
-                        const deltaX = touch.clientX - lastLookX;
-                        const deltaY = touch.clientY - lastLookY;
-                        lastLookX = touch.clientX; lastLookY = touch.clientY;
-
-                        euler.setFromQuaternion(camera.quaternion);
-                        euler.y -= deltaX * 0.004;
-                        euler.x -= deltaY * 0.004;
-                        euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x));
-                        camera.quaternion.setFromEuler(euler);
-                    }
-                }
-            }, {passive: false});
-
-            document.addEventListener('touchend', (e) => {
-                for(let i = 0; i < e.changedTouches.length; i++) {
-                    let touch = e.changedTouches[i];
-                    if(touch.identifier === moveTouchId) {
-                        moveTouchId = null;
-                        jBase.style.display = 'none';
-                        moveVector.set(0,0);
-                        moveState.sprint = false;
-                    } else if(touch.identifier === lookTouchId) {
-                        lookTouchId = null;
-                    }
-                }
-            });
-
-            blocker.addEventListener('click', () => {
-                initAudio();
-                blocker.style.display = 'none';
-                hud.style.display = 'block';
-                rec.style.display = 'block';
-                isPlaying = true;
-            });
-
-        } else {
-            blocker.addEventListener('click', () => {
-                initAudio();
-                controls.lock();
-            });
-
-            controls.addEventListener('lock', () => {
-                blocker.style.display = 'none';
-                hud.style.display = 'block';
-                rec.style.display = 'block';
-                isPlaying = true;
-                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            });
-
-            controls.addEventListener('unlock', () => {
-                if(!isDead) blocker.style.display = 'flex';
-                hud.style.display = 'none';
-                rec.style.display = 'none';
-                isPlaying = false;
-            });
-
-            document.addEventListener('keydown', (e) => {
-                switch(e.code) {
-                    case 'KeyW': moveState.forward = true; break;
-                    case 'KeyA': moveState.left = true; break;
-                    case 'KeyS': moveState.backward = true; break;
-                    case 'KeyD': moveState.right = true; break;
-                    case 'ShiftLeft': moveState.sprint = true; break;
-                }
-            });
-            document.addEventListener('keyup', (e) => {
-                switch(e.code) {
-                    case 'KeyW': moveState.forward = false; break;
-                    case 'KeyA': moveState.left = false; break;
-                    case 'KeyS': moveState.backward = false; break;
-                    case 'KeyD': moveState.right = false; break;
-                    case 'ShiftLeft': moveState.sprint = false; break;
-                }
-            });
-        }
-
-        // --- 4. GRAPHICS & MATTE WALLS GENERATION ---
-        function createWallTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#cfb974'; ctx.fillRect(0, 0, 512, 512); 
-            ctx.strokeStyle = '#b09b57'; ctx.lineWidth = 4;
-            // Realistic vertical wallpaper lines
-            for(let i = 0; i < 512; i += 32) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-            }
-            // Tiny noise speckles for texture depth
-            for(let i=0; i<8000; i++) { ctx.fillStyle = `rgba(90, 75, 20, ${Math.random() * 0.08})`; ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2); }
-            const tex = new THREE.CanvasTexture(canvas); return tex;
-        }
-
-        function createCarpetTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#9e894b'; ctx.fillRect(0, 0, 256, 256);
-            for(let i=0; i<40000; i++) { ctx.fillStyle = `rgba(60, 48, 15, ${Math.random() * 0.2})`; ctx.fillRect(Math.random()*256, Math.random()*256, 1, 1); }
-            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(16, 16); return tex;
-        }
-
-        function createCeilingTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ccc293'; ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#999065'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, 256, 256);
-            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(16, 16); return tex;
-        }
-
-        const wallMat = new THREE.MeshLambertMaterial({ map: createWallTexture() }); 
-        const floorMat = new THREE.MeshLambertMaterial({ map: createCarpetTexture() }); 
-        const ceilingMat = new THREE.MeshLambertMaterial({ map: createCeilingTexture() }); 
-
-        // Enclosed Play Area
-        const arenaSize = 75;
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(arenaSize, arenaSize), floorMat); floor.rotation.x = -Math.PI / 2; scene.add(floor);
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(arenaSize, arenaSize), ceilingMat); ceiling.rotation.x = Math.PI / 2; ceiling.position.y = 3.0; scene.add(ceiling);
-
-        // --- 5. GRID MAZE GENERATION & BORDERS ---
-        let mapSize = 20; 
-        const wallSize = 3.5;
-        let walls = [];
-        let wallMesh; 
-        
-        const exitBlock = new THREE.Mesh(new THREE.BoxGeometry(wallSize, 3, wallSize), new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.15 }));
-        const exitLight = new THREE.PointLight(0x33ff33, 1.5, 12); exitBlock.add(exitLight); scene.add(exitBlock);
-
-        // Monster Asset
-        const monster = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.6, 1.1), new THREE.MeshBasicMaterial({ color: 0x080808 })); scene.add(monster);
-
-        let monsterTarget = new THREE.Vector3();
-        let isChasing = false;
-        const raycaster = new THREE.Raycaster();
-
-        // Build Fluorescent Overhead Panels Mesh Instancing
-        let lightMesh;
-        const lightGeo = new THREE.PlaneGeometry(1.6, 0.8);
-        const lightMat = new THREE.MeshBasicMaterial({ color: 0xfffee0 });
-
-        function generateLevel() {
-            walls = [];
-            if (wallMesh) scene.remove(wallMesh);
-            if (lightMesh) scene.remove(lightMesh);
-
-            camera.position.set(0, 1.6, 0);
-
-            const wallGeo = new THREE.BoxGeometry(wallSize, 3.0, wallSize);
-            // Calculate instances including perimeter borders
-            const totalInstances = (mapSize + 2) * (mapSize + 2) + (mapSize * mapSize);
-            wallMesh = new THREE.InstancedMesh(wallGeo, wallMat, totalInstances);
-            
-            let lightPositions = [];
-            let instanceId = 0;
-            const dummy = new THREE.Object3D();
-
-            const half = mapSize / 2;
-
-            // 1. GENERATE UNBREAKABLE OUTER BORDER WALLS
-            for (let x = -half - 1; x <= half + 1; x++) {
-                for (let z = -half - 1; z <= half + 1; z++) {
-                    if (x === -half - 1 || x === half + 1 || z === -half - 1 || z === half + 1) {
-                        const wX = x * wallSize; const wZ = z * wallSize;
-                        dummy.position.set(wX, 1.5, wZ); dummy.updateMatrix();
-                        wallMesh.setMatrixAt(instanceId++, dummy.matrix);
-                        walls.push({ minX: wX - wallSize/2, maxX: wX + wallSize/2, minZ: wZ - wallSize/2, maxZ: wZ + wallSize/2 });
-                    }
-                }
-            }
-
-            // 2. GENERATE INNER MAZE PROCEDURAL COLUMNS
-            for(let x = -half; x < half; x++) {
-                for(let z = -half; z < half; z++) {
-                    if (Math.abs(x) < 2 && Math.abs(z) < 2) {
-                        // Keep spawn clear but add light overhead
-                        if((x + z) % 3 === 0) lightPositions.push(new THREE.Vector3(x*wallSize, 2.98, z*wallSize));
-                        continue; 
-                    }
-
-                    // Higher density layout logic
-                    if(Math.random() > 0.60) {
-                        const wX = x * wallSize; const wZ = z * wallSize;
-                        dummy.position.set(wX, 1.5, wZ); dummy.updateMatrix();
-                        wallMesh.setMatrixAt(instanceId++, dummy.matrix);
-                        walls.push({ minX: wX - wallSize/2, maxX: wX + wallSize/2, minZ: wZ - wallSize/2, maxZ: wZ + wallSize/2 });
+        // --- PROCEDURAL GENERATOR ---
+        let map = [];
+        function generateMap() {
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                map[y] = [];
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    // Outermost borders are always solid walls
+                    if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
+                        map[y][x] = 0; // Wall
                     } else {
-                        // Light panels spawn safely inside open hallway spaces
-                        if(Math.random() > 0.75) {
-                            lightPositions.push(new THREE.Vector3(x * wallSize, 2.98, z * wallSize));
-                        }
+                        map[y][x] = Math.random() < 0.28 ? 0 : 1; // 1 = Floor floor path
                     }
                 }
             }
-            wallMesh.count = instanceId; 
-            scene.add(wallMesh);
+        }
+        generateMap();
 
-            // Populate ceiling fixtures
-            lightMesh = new THREE.InstancedMesh(lightGeo, lightMat, lightPositions.length);
-            for(let i=0; i<lightPositions.length; i++) {
-                dummy.position.copy(lightPositions[i]);
-                dummy.rotation.x = Math.PI / 2; 
-                dummy.updateMatrix();
-                lightMesh.setMatrixAt(i, dummy.matrix);
+        // --- BUILD WORLD ---
+        const wallGeo = new THREE.BoxGeometry(GRID_SIZE, WALL_HEIGHT, GRID_SIZE);
+        const floorGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
+
+        for (let y = 0; y < MAP_HEIGHT; y++) {
+            for (let x = 0; x < MAP_WIDTH; x++) {
+                let posX = x * GRID_SIZE;
+                let posZ = y * GRID_SIZE;
+
+                // Spawn Floors & Ceilings everywhere inside
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.set(posX, 0, posZ);
+                scene.add(floor);
+
+                const ceiling = new THREE.Mesh(floorGeo, ceilingMat);
+                ceiling.rotation.x = Math.PI / 2;
+                ceiling.position.set(posX, WALL_HEIGHT, posZ);
+                scene.add(ceiling);
+
+                if (map[y][x] === 0) {
+                    // Spawn Wall Block
+                    const wall = new THREE.Mesh(wallGeo, wallMat);
+                    wall.position.set(posX, WALL_HEIGHT / 2, posZ);
+                    scene.add(wall);
+                } else {
+                    // Randomly place ceiling panel lights on floor paths
+                    if (Math.random() < 0.15) {
+                        createCeilingLight(posX, posZ);
+                    }
+                }
             }
-            scene.add(lightMesh);
-
-            // Place exit far away inside boundaries
-            exitBlock.position.set((Math.random() > 0.5 ? 1 : -1) * (half - 2) * wallSize, 1.5, (Math.random() > 0.5 ? 1 : -1) * (half - 2) * wallSize);
-            monster.position.set(-exitBlock.position.x, 1.3, -exitBlock.position.z);
-            monsterTarget.copy(monster.position);
-            isChasing = false;
         }
 
-        // --- 6. LIGHTING SYSTEM ---
-        const ambientLight = new THREE.AmbientLight(0xfffdbd, 1.1); scene.add(ambientLight);
-        const flashlight = new THREE.PointLight(0xfffebb, 0.7, 18); camera.add(flashlight); scene.add(camera);
+        // --- LIGHTS & BLOOM HUM EFFECT ---
+        function createCeilingLight(x, z) {
+            // Visible fixture mesh
+            const lightGeo = new THREE.PlaneGeometry(1.2, 0.6);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xfffee0 });
+            const mesh = new THREE.Mesh(lightGeo, lightMat);
+            mesh.position.set(x, WALL_HEIGHT - 0.02, z);
+            mesh.rotation.x = Math.PI / 2;
+            scene.add(mesh);
 
-        // --- 7. VHS SHADER WITH TUNED/LESS INTENSE GRAIN ---
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
+            // Fake Bloom Light Halo
+            const glowGeo = new THREE.PlaneGeometry(2.2, 2.2);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0xfffca8,
+                transparent: true,
+                opacity: 0.25,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.set(x, WALL_HEIGHT - 0.05, z);
+            glow.rotation.x = Math.PI / 2;
+            scene.add(glow);
 
-        const VhsShader = {
-            uniforms: { "tDiffuse": { value: null }, "time": { value: 0.0 } },
-            vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-            fragmentShader: `
-                uniform sampler2D tDiffuse; uniform float time; varying vec2 vUv;
-                void main() {
-                    vec2 uv = vUv; vec2 center = vec2(0.5, 0.5); vec2 d = uv - center; 
-                    if(length(d) == 0.0) d = vec2(0.001, 0.0);
-                    float r = length(d); float power = 1.15; float bind = sqrt(0.5);
-                    uv = center + normalize(d) * tan(r * power) * bind / tan(bind * power);
-                    if(uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-                    
-                    float offset = 0.0025 + sin(uv.y * 8.0 + time) * 0.0015;
-                    float rColor = texture2D(tDiffuse, uv + vec2(offset, 0.0)).r;
-                    float gColor = texture2D(tDiffuse, uv).g;
-                    float bColor = texture2D(tDiffuse, uv - vec2(offset, 0.0)).b;
-                    
-                    // TUNED DOWN GRAIN NOISE AMPLITUDE FROM 0.06 TO 0.018 (CLEANER GRAPHICS)
-                    float noise = fract(sin(dot(uv + time, vec2(12.9898,78.233))) * 43758.5453) * 0.018;
-                    gl_FragColor = vec4(vec3(rColor, gColor, bColor) - noise, 1.0);
+            // Actual Light Source
+            const pointLight = new THREE.PointLight(0xfff6bd, 0.8, 7);
+            pointLight.position.set(x, WALL_HEIGHT - 0.3, z);
+            scene.add(pointLight);
+        }
+
+        // Ambient glow container
+        const ambient = new THREE.AmbientLight(0x404030, 0.6);
+        scene.add(ambient);
+
+        // --- GUARANTEED EXIT SPINNER ---
+        let exitPos = new THREE.Vector3();
+        function spawnExit() {
+            // Scans the map matrix backward from the furthest corner to find open floor coordinates
+            for (let y = MAP_HEIGHT - 2; y > 1; y--) {
+                for (let x = MAP_WIDTH - 2; x > 1; x--) {
+                    if (map[y][x] === 1) {
+                        exitPos.set(x * GRID_SIZE, 0, y * GRID_SIZE);
+                        
+                        // Red Exit Door Frame Mesh
+                        const exitGeo = new THREE.BoxGeometry(1.2, 2.4, 0.2);
+                        const exitMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
+                        const exitMesh = new THREE.Mesh(exitGeo, exitMat);
+                        exitMesh.position.set(exitPos.x, 1.2, exitPos.z);
+                        scene.add(exitMesh);
+
+                        // Red Light Source radiating out
+                        const redLight = new THREE.PointLight(0xff0000, 2.0, 6);
+                        redLight.position.set(exitPos.x, 1.5, exitPos.z);
+                        scene.add(redLight);
+                        return;
+                    }
                 }
-            `
+            }
+        }
+        spawnExit();
+
+        // --- REAL MONSTER ENTITY ---
+        let monster = {
+            mesh: null,
+            speed: 0.035,
+            detectionRange: 14,
+            gridX: 0,
+            gridY: 0
         };
-        const vhsPass = new ShaderPass(VhsShader); composer.addPass(vhsPass);
 
-        // --- 8. RUNTIME & TICK LOGIC ---
+        function spawnMonster() {
+            // Creates a tall, terrifying dark silhouette creature
+            const bodyGeo = new THREE.CylinderGeometry(0.3, 0.3, 2.4, 6);
+            const bodyMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+            monster.mesh = new THREE.Mesh(bodyGeo, bodyMat);
+
+            // Find an open space away from the start coordinate to spawn the stalker
+            for (let y = 6; y < MAP_HEIGHT - 2; y++) {
+                for (let x = 6; x < MAP_WIDTH - 2; x++) {
+                    if (map[y][x] === 1) {
+                        monster.mesh.position.set(x * GRID_SIZE, 1.2, y * GRID_SIZE);
+                        scene.add(monster.mesh);
+                        return;
+                    }
+                }
+            }
+        }
+        spawnMonster();
+
+        function updateMonster() {
+            if (!monster.mesh) return;
+
+            let dist = camera.position.distanceTo(monster.mesh.position);
+
+            if (dist < monster.detectionRange) {
+                // Look and target directly at the player's vector coordinates
+                let target = new THREE.Vector3(camera.position.x, monster.mesh.position.y, camera.position.z);
+                monster.mesh.lookAt(target);
+                monster.mesh.translateZ(monster.speed);
+
+                // Jumpscare/Catch Condition
+                if (dist < 1.1) {
+                    alert("IT FOUND YOU.");
+                    window.location.reload();
+                }
+            }
+        }
+
+        // --- PLAYER CONTROLS (FIXED INVERSION) ---
+        camera.position.set(GRID_SIZE, 1.6, GRID_SIZE); // Spawn position safely at index 1,1
+
+        let keys = {};
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
+
+        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        // Desktop Mouse Look Setup
+        let yaw = 0, pitch = 0;
+        window.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === document.body) {
+                yaw -= e.movementX * 0.0025;
+                pitch -= e.movementY * 0.0025;
+                pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch)); // Cap up/down gaze
+
+                camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            }
+        });
+
+        document.body.addEventListener('click', () => {
+            document.body.requestPointerLock();
+        });
+
+        // Mobile Touch Look System
+        let touchStart = { x: 0, y: 0 };
+        window.addEventListener('touchstart', (e) => {
+            if(e.target.classList.contains('btn') || e.target.id === 'sprint-btn') return;
+            touchStart.x = e.touches[0].clientX;
+            touchStart.y = e.touches[0].clientY;
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if(e.target.classList.contains('btn') || e.target.id === 'sprint-btn') return;
+            let diffX = e.touches[0].clientX - touchStart.x;
+            let diffY = e.touches[0].clientY - touchStart.y;
+
+            yaw -= diffX * 0.005;
+            pitch -= diffY * 0.005;
+            pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch));
+
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+
+            touchStart.x = e.touches[0].clientX;
+            touchStart.y = e.touches[0].clientY;
+        }, { passive: true });
+
+        // Mobile On-Screen Button Listeners
+        const bindBtn = (id, variable) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { window[variable] = true; e.preventDefault(); });
+            el.addEventListener('touchend', (e) => { window[variable] = false; e.preventDefault(); });
+        };
+        bindBtn('btn-w', 'moveForward');
+        bindBtn('btn-s', 'moveBackward');
+        bindBtn('btn-a', 'moveLeft');
+        bindBtn('btn-d', 'moveRight');
+
+        const sprEl = document.getElementById('sprint-btn');
+        sprEl.addEventListener('touchstart', (e) => { isSprinting = true; e.preventDefault(); });
+        sprEl.addEventListener('touchend', (e) => { isSprinting = false; e.preventDefault(); });
+
+        // --- WALL COLLISION CHECKER ---
+        function checkCollision(nextPos) {
+            let gridX = Math.round(nextPos.x / GRID_SIZE);
+            let gridY = Math.round(nextPos.z / GRID_SIZE);
+
+            if (gridX >= 0 && gridX < MAP_WIDTH && gridY >= 0 && gridY < MAP_HEIGHT) {
+                return map[gridY][gridX] === 0; // Collides if index returns 0 (Wall)
+            }
+            return true;
+        }
+
+        // --- GAME LOOP ---
         const clock = new THREE.Clock();
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-        const playerRadius = 0.45; 
-        let isDead = false;
-        let flashInterval;
-
-        generateLevel();
 
         function animate() {
             requestAnimationFrame(animate);
-            if (isDead) { camera.lookAt(monster.position); composer.render(); return; }
 
-            const delta = Math.min(clock.getDelta(), 0.1);
-            const time = clock.getElapsedTime();
-            vhsPass.uniforms["time"].value += delta;
+            // Desktop movement parsing
+            let fwd = keys['w'] || moveForward;
+            let bwd = keys['s'] || moveBackward;
+            let lft = keys['a'] || moveLeft;
+            let rgt = keys['d'] || moveRight;
+            let sprint = keys['shift'] || isSprinting;
 
-            // Authentic flickering fluorescent light simulation
-            flashlight.intensity = Math.random() > 0.985 ? Math.random() * 0.4 + 0.2 : 0.7;
-            if(humGain) humGain.gain.value = 0.04 + Math.random() * 0.02;
+            let currentSpeed = sprint ? 0.09 : 0.05;
+            let nextPosition = camera.position.clone();
 
-            if (isPlaying) {
-                const speed = moveState.sprint ? 15.5 : 9.5;
-                const damping = Math.max(0, 1.0 - 11.0 * delta);
-                velocity.x *= damping; velocity.z *= damping;
+            // Direction Vectors (Fixed inversion calculations)
+            let forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            forwardVec.y = 0; forwardVec.normalize();
 
-                let forwardAmt = 0; let rightAmt = 0;
-                
-                if(isMobile) {
-                    // FIXED INVERTED TOUCH DIRECTION CONTROL
-                    forwardAmt = moveVector.y; 
-                    rightAmt = moveVector.x;
-                } else {
-                    forwardAmt = Number(moveState.forward) - Number(moveState.backward);
-                    rightAmt = Number(moveState.right) - Number(moveState.left);
-                }
+            let sideVec = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            sideVec.y = 0; sideVec.normalize();
 
-                direction.z = forwardAmt; direction.x = rightAmt;
-                if (direction.lengthSq() > 0) direction.normalize();
+            if (fwd) nextPosition.addScaledVector(forwardVec, currentSpeed);
+            if (bwd) nextPosition.addScaledVector(forwardVec, -currentSpeed);
+            if (lft) nextPosition.addScaledVector(sideVec, -currentSpeed);
+            if (rgt) nextPosition.addScaledVector(sideVec, currentSpeed);
 
-                velocity.z -= direction.z * speed * delta;
-                velocity.x -= direction.x * speed * delta;
-
-                euler.setFromQuaternion(camera.quaternion);
-                const moveVec = new THREE.Vector3(velocity.x * delta, 0, velocity.z * delta);
-                moveVec.applyEuler(new THREE.Euler(0, euler.y, 0, 'YXZ'));
-
-                // Axis Sliding Map Collision System
-                let newX = camera.position.x - moveVec.x; let newZ = camera.position.z - moveVec.z;
-                
-                let colX = false;
-                for(let w of walls) { if (newX + playerRadius > w.minX && newX - playerRadius < w.maxX && camera.position.z + playerRadius > w.minZ && camera.position.z - playerRadius < w.maxZ) { colX = true; break; } }
-                if(!colX) camera.position.x = newX; else velocity.x = 0;
-
-                let colZ = false;
-                for(let w of walls) { if (camera.position.x + playerRadius > w.minX && camera.position.x - playerRadius < w.maxX && newZ + playerRadius > w.minZ && newZ - playerRadius < w.maxZ) { colZ = true; break; } }
-                if(!colZ) camera.position.z = newZ; else velocity.z = 0;
-
-                // --- MONSTER SOUNDS & AI ENGAGEMENT ---
-                const distToPlayer = monster.position.distanceTo(camera.position);
-                
-                // Pulsing Proximity Audio Synthesizer Loop
-                if (audioCtx && time > nextHeartbeatTime) {
-                    let proximityScale = Math.max(0, 1.0 - (distToPlayer / 22));
-                    if (proximityScale > 0) {
-                        playHeartbeatSound(proximityScale);
-                        // Beats quicken as distance decreases
-                        nextHeartbeatTime = time + Math.max(0.2, (distToPlayer / 22) * 1.1);
-                    } else {
-                        nextHeartbeatTime = time + 1.2;
-                    }
-                }
-
-                const vignette = document.getElementById('vignette');
-                vignette.style.opacity = distToPlayer < 22 ? 1.0 - (distToPlayer / 22) : 0;
-
-                const rayOrigin = new THREE.Vector3(monster.position.x, 1.5, monster.position.z);
-                const dirToPlayer = new THREE.Vector3().subVectors(camera.position, rayOrigin).normalize();
-                raycaster.set(rayOrigin, dirToPlayer);
-                const intersects = raycaster.intersectObject(wallMesh);
-                
-                let canSeePlayer = !(intersects.length > 0 && intersects[0].distance < distToPlayer);
-
-                if (canSeePlayer) {
-                    monsterTarget.copy(camera.position); monsterTarget.y = 1.3; 
-                    if (!isChasing) {
-                        isChasing = true;
-                        if(monsterDroneGain) monsterDroneGain.gain.setTargetAtTime(0.4, audioCtx.currentTime, 0.1);
-                    }
-                } else {
-                    if (isChasing && monster.position.distanceTo(monsterTarget) < 1.0) {
-                        isChasing = false;
-                        if(monsterDroneGain) monsterDroneGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.5);
-                    }
-                    if (!isChasing && (monster.position.distanceTo(monsterTarget) < 1.0 || Math.random() < 0.015)) {
-                        monsterTarget.set(monster.position.x + (Math.random() - 0.5) * 16, 1.3, monster.position.z + (Math.random() - 0.5) * 16);
-                    }
-                }
-
-                const moveDir = new THREE.Vector3().subVectors(monsterTarget, monster.position);
-                moveDir.y = 0;
-                if (moveDir.lengthSq() > 0) {
-                    moveDir.normalize();
-                    // Monster speed runs slower than basic player movement speed
-                    monster.position.addScaledVector(moveDir, 6.8 * delta);
-                    monster.lookAt(monsterTarget.x, monster.position.y, monsterTarget.z);
-                }
-
-                if (distToPlayer < 1.5) triggerJumpscare();
-                if (camera.position.distanceTo(exitBlock.position) < 2.2) { generateLevel(); }
+            // Execute positions if no wall geometry intersection occurs
+            if (!checkCollision(nextPosition)) {
+                camera.position.copy(nextPosition);
             }
-            composer.render();
+
+            // Check Win Condition (Reaching the escape door vector)
+            if (camera.position.distanceTo(exitPos) < 1.5) {
+                alert("YOU ESCAPED THE BACKROOMS!");
+                window.location.reload();
+            }
+
+            updateMonster();
+
+            // Render loop steps combined manually to display custom trail motion blur
+            renderer.clearDepth(); 
+            renderer.render(scene, camera);
         }
 
-        function triggerJumpscare() {
-            isDead = true; isPlaying = false;
-            if(monsterDroneGain) monsterDroneGain.gain.setValueAtTime(0, audioCtx.currentTime);
-            if(!isMobile) controls.unlock();
-            playJumpscareSound();
-            camera.lookAt(monster.position);
-            
-            const jsDiv = document.getElementById('jumpscare');
-            jsDiv.style.display = 'flex';
-            document.getElementById('hud').style.display = 'none';
-            document.getElementById('rec').style.display = 'none';
-            document.getElementById('vignette').style.opacity = 0;
-            if(isMobile) document.getElementById('mobile-ui').style.display = 'none';
-            
-            let flashCount = 0;
-            flashInterval = setInterval(() => {
-                jsDiv.style.backgroundColor = flashCount % 2 === 0 ? '#de2929' : '#000000';
-                jsDiv.style.color = flashCount % 2 === 0 ? '#000000' : '#ffffff';
-                jsDiv.style.transform = `translate(${(Math.random()-0.5)*35}px, ${(Math.random()-0.5)*35}px)`;
-                flashCount++;
-            }, 35);
-            
-            setTimeout(() => {
-                clearInterval(flashInterval);
-                jsDiv.style.transform = 'translate(0,0)';
-                isDead = false; 
-                jsDiv.style.display = 'none';
-                blocker.style.display = 'flex';
-                if(isMobile) document.getElementById('mobile-ui').style.display = 'block';
-                generateLevel();
-            }, 2500);
-        }
-
+        // Handle Responsive Window Resizes
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // Trigger loop execution on startup
         animate();
     </script>
 </body>
