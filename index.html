@@ -3,78 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Backrooms</title>
+    <title>The Backrooms - Overhaul</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: monospace;
-            user-select: none;
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #000; font-family: monospace; user-select: none;
         }
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
-        /* Mobile UI Controls */
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* Mobile Controls */
         #mobile-controls {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 10;
+            position: absolute; bottom: 20px; left: 20px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 10;
         }
-        .row {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
+        .row { display: flex; justify-content: center; gap: 10px; }
         .btn {
-            width: 60px;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            border-radius: 10px;
-            color: white;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: manipulation;
+            width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 10px;
+            color: white; font-size: 20px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; touch-action: manipulation;
         }
-        .btn:active {
-            background: rgba(255, 255, 255, 0.5);
-        }
+        .btn:active { background: rgba(255, 255, 255, 0.5); }
         #sprint-btn {
-            position: absolute;
-            bottom: 40px;
-            right: 40px;
-            width: 80px;
-            height: 80px;
-            background: rgba(200, 50, 50, 0.3);
-            border: 2px solid rgba(200, 50, 50, 0.6);
-            border-radius: 50%;
-            color: white;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
+            position: absolute; bottom: 40px; right: 40px; width: 80px; height: 80px;
+            background: rgba(200, 50, 50, 0.3); border: 2px solid rgba(200, 50, 50, 0.6);
+            border-radius: 50%; color: white; z-index: 10; display: flex;
+            align-items: center; justify-content: center; font-size: 14px;
+        }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.5); font-size: 24px; pointer-events: none; z-index: 10;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
+    <div id="crosshair">+</div>
     <div id="mobile-controls">
-        <div class="row">
-            <div class="btn" id="btn-w">W</div>
-        </div>
+        <div class="row"><div class="btn" id="btn-w">W</div></div>
         <div class="row">
             <div class="btn" id="btn-a">A</div>
             <div class="btn" id="btn-s">S</div>
@@ -84,34 +51,26 @@
     <div id="sprint-btn">SPRINT</div>
 
     <script>
-        // --- GAME CONFIGURATION ---
-        const GRID_SIZE = 3;
-        const MAP_WIDTH = 25;
-        const MAP_HEIGHT = 25;
-        const WALL_HEIGHT = 3.5;
-
-        // --- ENGINE SETUP ---
+        // 1. ENGINE & EXTREME FOV SETUP
+        const GRID_SIZE = 3; const MAP_WIDTH = 25; const MAP_HEIGHT = 25; const WALL_HEIGHT = 3.5;
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0xd1c280, 0.07); // Yellowish hum fog
-
-        // FOV dropped to 55 for a cinematic, claustrophobic look
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        scene.fog = new THREE.FogExp2(0xd1c280, 0.08); // Thick yellow fog
         
-        // preserveDrawingBuffer allows us to fake custom motion blur trails smoothly
-        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        // FOV dropped to 45 for extreme claustrophobia
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        // Render setup with Motion Blur capability enabled
+        const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
         renderer.autoClearColor = false; 
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- MOTION BLUR EFFECT SETUP ---
-        // A full-screen overlay mesh attached to the camera that creates a camera ghosting lag trail
+        // 2. HEAVY MOTION BLUR
         const blurGeo = new THREE.PlaneGeometry(2, 2);
         const blurMat = new THREE.MeshBasicMaterial({
-            color: 0x000000,
-            transparent: true,
-            opacity: 0.18, // Adjust this between 0.1 (heavy blur) and 0.3 (light blur)
+            color: 0x000000, transparent: true,
+            opacity: 0.08, // Lower number = heavier blur smearing
             blending: THREE.NormalBlending
         });
         const blurMesh = new THREE.Mesh(blurGeo, blurMat);
@@ -119,308 +78,235 @@
         camera.add(blurMesh);
         scene.add(camera);
 
-        // --- TEXTURES (Retro & Sharp) ---
+        // 3. SHARP RETRO TEXTURES
         const textureLoader = new THREE.TextureLoader();
-        // Uses your uploaded wallpaper image name. Make sure image_780d3a.png is in your folder!
-        const wallTexture = textureLoader.load('image_780d3a.png', function(tex) {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(1, 1);
-            tex.minFilter = THREE.NearestFilter; // Sharp retro pixels
-            tex.magFilter = THREE.NearestFilter;
-        });
+        const wallTexture = textureLoader.load('image_780d3a.png'); // MUST MATCH EXACT FILE NAME
+        wallTexture.wrapS = THREE.RepeatWrapping; wallTexture.wrapT = THREE.RepeatWrapping;
+        wallTexture.repeat.set(1, 1);
+        wallTexture.minFilter = THREE.NearestFilter; wallTexture.magFilter = THREE.NearestFilter;
 
-        const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.8 });
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0xa39458, roughness: 0.9 }); // Dull carpet
+        const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.9 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x8a7a42, roughness: 1.0 }); 
         const ceilingMat = new THREE.MeshStandardMaterial({ color: 0xdfdfc1, roughness: 0.5 });
 
-        // --- PROCEDURAL GENERATOR ---
+        // 4. MAP GENERATION
         let map = [];
-        function generateMap() {
-            for (let y = 0; y < MAP_HEIGHT; y++) {
-                map[y] = [];
-                for (let x = 0; x < MAP_WIDTH; x++) {
-                    // Outermost borders are always solid walls
-                    if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
-                        map[y][x] = 0; // Wall
-                    } else {
-                        map[y][x] = Math.random() < 0.28 ? 0 : 1; // 1 = Floor floor path
-                    }
+        for (let y = 0; y < MAP_HEIGHT; y++) {
+            map[y] = [];
+            for (let x = 0; x < MAP_WIDTH; x++) {
+                if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
+                    map[y][x] = 0; // Solid Border
+                } else {
+                    map[y][x] = Math.random() < 0.25 ? 0 : 1; // 0 = Wall, 1 = Path
                 }
             }
         }
-        generateMap();
+        map[1][1] = 1; // Guarantee safe spawn point
 
-        // --- BUILD WORLD ---
+        // 5. BUILD THE 3D WORLD
         const wallGeo = new THREE.BoxGeometry(GRID_SIZE, WALL_HEIGHT, GRID_SIZE);
         const floorGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
 
         for (let y = 0; y < MAP_HEIGHT; y++) {
             for (let x = 0; x < MAP_WIDTH; x++) {
-                let posX = x * GRID_SIZE;
-                let posZ = y * GRID_SIZE;
+                let posX = x * GRID_SIZE, posZ = y * GRID_SIZE;
 
-                // Spawn Floors & Ceilings everywhere inside
                 const floor = new THREE.Mesh(floorGeo, floorMat);
-                floor.rotation.x = -Math.PI / 2;
-                floor.position.set(posX, 0, posZ);
+                floor.rotation.x = -Math.PI / 2; floor.position.set(posX, 0, posZ);
                 scene.add(floor);
 
                 const ceiling = new THREE.Mesh(floorGeo, ceilingMat);
-                ceiling.rotation.x = Math.PI / 2;
-                ceiling.position.set(posX, WALL_HEIGHT, posZ);
+                ceiling.rotation.x = Math.PI / 2; ceiling.position.set(posX, WALL_HEIGHT, posZ);
                 scene.add(ceiling);
 
                 if (map[y][x] === 0) {
-                    // Spawn Wall Block
                     const wall = new THREE.Mesh(wallGeo, wallMat);
                     wall.position.set(posX, WALL_HEIGHT / 2, posZ);
                     scene.add(wall);
-                } else {
-                    // Randomly place ceiling panel lights on floor paths
-                    if (Math.random() < 0.15) {
-                        createCeilingLight(posX, posZ);
-                    }
+                } else if (Math.random() < 0.15) {
+                    // 6. EXAGGERATED GLOW/BLOOM LIGHTS
+                    const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    const lightMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.8), lightMat);
+                    lightMesh.position.set(posX, WALL_HEIGHT - 0.02, posZ);
+                    lightMesh.rotation.x = Math.PI / 2;
+                    scene.add(lightMesh);
+
+                    // Additive fake bloom halo
+                    const glowGeo = new THREE.PlaneGeometry(2.5, 2.5);
+                    const glowMat = new THREE.MeshBasicMaterial({
+                        color: 0xfffca8, transparent: true, opacity: 0.4,
+                        blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+                    });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.position.set(posX, WALL_HEIGHT - 0.05, posZ);
+                    glow.rotation.x = Math.PI / 2;
+                    scene.add(glow);
+
+                    const ptLight = new THREE.PointLight(0xfff6bd, 1.2, 8);
+                    ptLight.position.set(posX, WALL_HEIGHT - 0.5, posZ);
+                    scene.add(ptLight);
                 }
             }
         }
+        scene.add(new THREE.AmbientLight(0x404030, 0.8));
 
-        // --- LIGHTS & BLOOM HUM EFFECT ---
-        function createCeilingLight(x, z) {
-            // Visible fixture mesh
-            const lightGeo = new THREE.PlaneGeometry(1.2, 0.6);
-            const lightMat = new THREE.MeshBasicMaterial({ color: 0xfffee0 });
-            const mesh = new THREE.Mesh(lightGeo, lightMat);
-            mesh.position.set(x, WALL_HEIGHT - 0.02, z);
-            mesh.rotation.x = Math.PI / 2;
-            scene.add(mesh);
-
-            // Fake Bloom Light Halo
-            const glowGeo = new THREE.PlaneGeometry(2.2, 2.2);
-            const glowMat = new THREE.MeshBasicMaterial({
-                color: 0xfffca8,
-                transparent: true,
-                opacity: 0.25,
-                blending: THREE.AdditiveBlending,
-                side: THREE.DoubleSide
-            });
-            const glow = new THREE.Mesh(glowGeo, glowMat);
-            glow.position.set(x, WALL_HEIGHT - 0.05, z);
-            glow.rotation.x = Math.PI / 2;
-            scene.add(glow);
-
-            // Actual Light Source
-            const pointLight = new THREE.PointLight(0xfff6bd, 0.8, 7);
-            pointLight.position.set(x, WALL_HEIGHT - 0.3, z);
-            scene.add(pointLight);
-        }
-
-        // Ambient glow container
-        const ambient = new THREE.AmbientLight(0x404030, 0.6);
-        scene.add(ambient);
-
-        // --- GUARANTEED EXIT SPINNER ---
+        // 7. GUARANTEED OBVIOUS EXIT
         let exitPos = new THREE.Vector3();
-        function spawnExit() {
-            // Scans the map matrix backward from the furthest corner to find open floor coordinates
-            for (let y = MAP_HEIGHT - 2; y > 1; y--) {
-                for (let x = MAP_WIDTH - 2; x > 1; x--) {
-                    if (map[y][x] === 1) {
-                        exitPos.set(x * GRID_SIZE, 0, y * GRID_SIZE);
-                        
-                        // Red Exit Door Frame Mesh
-                        const exitGeo = new THREE.BoxGeometry(1.2, 2.4, 0.2);
-                        const exitMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
-                        const exitMesh = new THREE.Mesh(exitGeo, exitMat);
-                        exitMesh.position.set(exitPos.x, 1.2, exitPos.z);
-                        scene.add(exitMesh);
+        for (let y = MAP_HEIGHT - 2; y > 1; y--) {
+            for (let x = MAP_WIDTH - 2; x > 1; x--) {
+                if (map[y][x] === 1) {
+                    exitPos.set(x * GRID_SIZE, 0, y * GRID_SIZE);
+                    
+                    const exitMesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.2, 2.4, 0.5), 
+                        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+                    );
+                    exitMesh.position.set(exitPos.x, 1.2, exitPos.z);
+                    scene.add(exitMesh);
 
-                        // Red Light Source radiating out
-                        const redLight = new THREE.PointLight(0xff0000, 2.0, 6);
-                        redLight.position.set(exitPos.x, 1.5, exitPos.z);
-                        scene.add(redLight);
-                        return;
-                    }
+                    const redLight = new THREE.PointLight(0xff0000, 3.0, 10);
+                    redLight.position.set(exitPos.x, 1.5, exitPos.z);
+                    scene.add(redLight);
+                    
+                    y = 0; x = 0; // Force loop break
                 }
             }
         }
-        spawnExit();
 
-        // --- REAL MONSTER ENTITY ---
-        let monster = {
-            mesh: null,
-            speed: 0.035,
-            detectionRange: 14,
-            gridX: 0,
-            gridY: 0
-        };
+        // 8. REAL MONSTER (WITH GLOWING EYES)
+        let monsterMesh = new THREE.Group();
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 2.8, 8),
+            new THREE.MeshBasicMaterial({ color: 0x050505 })
+        );
+        body.position.y = 1.4;
+        monsterMesh.add(body);
 
-        function spawnMonster() {
-            // Creates a tall, terrifying dark silhouette creature
-            const bodyGeo = new THREE.CylinderGeometry(0.3, 0.3, 2.4, 6);
-            const bodyMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
-            monster.mesh = new THREE.Mesh(bodyGeo, bodyMat);
+        // Glowing red eyes
+        const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.15, 2.4, 0.35);
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.15, 2.4, 0.35);
+        monsterMesh.add(leftEye);
+        monsterMesh.add(rightEye);
 
-            // Find an open space away from the start coordinate to spawn the stalker
-            for (let y = 6; y < MAP_HEIGHT - 2; y++) {
-                for (let x = 6; x < MAP_WIDTH - 2; x++) {
-                    if (map[y][x] === 1) {
-                        monster.mesh.position.set(x * GRID_SIZE, 1.2, y * GRID_SIZE);
-                        scene.add(monster.mesh);
-                        return;
-                    }
-                }
-            }
-        }
-        spawnMonster();
+        // Spawn far away from player
+        monsterMesh.position.set((MAP_WIDTH - 5) * GRID_SIZE, 0, (MAP_HEIGHT - 5) * GRID_SIZE);
+        scene.add(monsterMesh);
 
         function updateMonster() {
-            if (!monster.mesh) return;
+            let dist = camera.position.distanceTo(monsterMesh.position);
+            if (dist < 15) { // Hunt range
+                let target = new THREE.Vector3(camera.position.x, 0, camera.position.z);
+                monsterMesh.lookAt(target);
+                monsterMesh.translateZ(0.06); // Fast hunt speed
 
-            let dist = camera.position.distanceTo(monster.mesh.position);
-
-            if (dist < monster.detectionRange) {
-                // Look and target directly at the player's vector coordinates
-                let target = new THREE.Vector3(camera.position.x, monster.mesh.position.y, camera.position.z);
-                monster.mesh.lookAt(target);
-                monster.mesh.translateZ(monster.speed);
-
-                // Jumpscare/Catch Condition
-                if (dist < 1.1) {
-                    alert("IT FOUND YOU.");
+                if (dist < 1.5) {
+                    alert("THE BACKROOMS CLAIMED YOU.");
                     window.location.reload();
                 }
             }
         }
 
-        // --- PLAYER CONTROLS (FIXED INVERSION) ---
-        camera.position.set(GRID_SIZE, 1.6, GRID_SIZE); // Spawn position safely at index 1,1
-
+        // 9. FIXED MOVEMENT (W/S SEPARATED)
+        camera.position.set(GRID_SIZE, 1.6, GRID_SIZE); 
         let keys = {};
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
+        window.addEventListener('keydown', (e) => keys[e.code] = true);
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
-
-        // Desktop Mouse Look Setup
+        // Mouse Look
         let yaw = 0, pitch = 0;
         window.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body) {
-                yaw -= e.movementX * 0.0025;
-                pitch -= e.movementY * 0.0025;
-                pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch)); // Cap up/down gaze
-
+                yaw -= e.movementX * 0.003;
+                pitch -= e.movementY * 0.003;
+                pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch));
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
             }
         });
+        document.body.addEventListener('click', () => document.body.requestPointerLock());
 
-        document.body.addEventListener('click', () => {
-            document.body.requestPointerLock();
-        });
+        // Mobile Controls Variables
+        let btnW = false, btnS = false, btnA = false, btnD = false, isSprinting = false;
+        const bindBtn = (id, varName) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { window[varName] = true; e.preventDefault(); });
+            el.addEventListener('touchend', (e) => { window[varName] = false; e.preventDefault(); });
+        };
+        bindBtn('btn-w', 'btnW'); bindBtn('btn-s', 'btnS');
+        bindBtn('btn-a', 'btnA'); bindBtn('btn-d', 'btnD');
+        bindBtn('sprint-btn', 'isSprinting');
 
-        // Mobile Touch Look System
+        // Touch Look
         let touchStart = { x: 0, y: 0 };
         window.addEventListener('touchstart', (e) => {
             if(e.target.classList.contains('btn') || e.target.id === 'sprint-btn') return;
-            touchStart.x = e.touches[0].clientX;
-            touchStart.y = e.touches[0].clientY;
+            touchStart.x = e.touches[0].clientX; touchStart.y = e.touches[0].clientY;
         }, { passive: true });
-
         window.addEventListener('touchmove', (e) => {
             if(e.target.classList.contains('btn') || e.target.id === 'sprint-btn') return;
-            let diffX = e.touches[0].clientX - touchStart.x;
-            let diffY = e.touches[0].clientY - touchStart.y;
-
-            yaw -= diffX * 0.005;
-            pitch -= diffY * 0.005;
+            yaw -= (e.touches[0].clientX - touchStart.x) * 0.005;
+            pitch -= (e.touches[0].clientY - touchStart.y) * 0.005;
             pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch));
-
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
-
-            touchStart.x = e.touches[0].clientX;
-            touchStart.y = e.touches[0].clientY;
+            touchStart.x = e.touches[0].clientX; touchStart.y = e.touches[0].clientY;
         }, { passive: true });
 
-        // Mobile On-Screen Button Listeners
-        const bindBtn = (id, variable) => {
-            const el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { window[variable] = true; e.preventDefault(); });
-            el.addEventListener('touchend', (e) => { window[variable] = false; e.preventDefault(); });
-        };
-        bindBtn('btn-w', 'moveForward');
-        bindBtn('btn-s', 'moveBackward');
-        bindBtn('btn-a', 'moveLeft');
-        bindBtn('btn-d', 'moveRight');
-
-        const sprEl = document.getElementById('sprint-btn');
-        sprEl.addEventListener('touchstart', (e) => { isSprinting = true; e.preventDefault(); });
-        sprEl.addEventListener('touchend', (e) => { isSprinting = false; e.preventDefault(); });
-
-        // --- WALL COLLISION CHECKER ---
-        function checkCollision(nextPos) {
-            let gridX = Math.round(nextPos.x / GRID_SIZE);
-            let gridY = Math.round(nextPos.z / GRID_SIZE);
-
-            if (gridX >= 0 && gridX < MAP_WIDTH && gridY >= 0 && gridY < MAP_HEIGHT) {
-                return map[gridY][gridX] === 0; // Collides if index returns 0 (Wall)
-            }
+        // Wall Collision
+        function checkWall(pos) {
+            let gx = Math.round(pos.x / GRID_SIZE), gy = Math.round(pos.z / GRID_SIZE);
+            if (gx >= 0 && gx < MAP_WIDTH && gy >= 0 && gy < MAP_HEIGHT) return map[gy][gx] === 0;
             return true;
         }
 
-        // --- GAME LOOP ---
-        const clock = new THREE.Clock();
-
+        // 10. GAME LOOP
         function animate() {
             requestAnimationFrame(animate);
 
-            // Desktop movement parsing
-            let fwd = keys['w'] || moveForward;
-            let bwd = keys['s'] || moveBackward;
-            let lft = keys['a'] || moveLeft;
-            let rgt = keys['d'] || moveRight;
-            let sprint = keys['shift'] || isSprinting;
+            // W and S strictly separated logic
+            let fwd = keys['KeyW'] || btnW;
+            let bwd = keys['KeyS'] || btnS;
+            let lft = keys['KeyA'] || btnA;
+            let rgt = keys['KeyD'] || btnD;
+            let sprint = keys['ShiftLeft'] || isSprinting;
 
-            let currentSpeed = sprint ? 0.09 : 0.05;
-            let nextPosition = camera.position.clone();
+            let speed = sprint ? 0.12 : 0.06;
+            let moveDir = new THREE.Vector3();
 
-            // Direction Vectors (Fixed inversion calculations)
-            let forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-            forwardVec.y = 0; forwardVec.normalize();
+            // Z is forward/backward. X is left/right.
+            if (fwd) moveDir.z -= 1; // W = Move Forward
+            if (bwd) moveDir.z += 1; // S = Move Backward
+            if (lft) moveDir.x -= 1; // A = Move Left
+            if (rgt) moveDir.x += 1; // D = Move Right
 
-            let sideVec = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-            sideVec.y = 0; sideVec.normalize();
-
-            if (fwd) nextPosition.addScaledVector(forwardVec, currentSpeed);
-            if (bwd) nextPosition.addScaledVector(forwardVec, -currentSpeed);
-            if (lft) nextPosition.addScaledVector(sideVec, -currentSpeed);
-            if (rgt) nextPosition.addScaledVector(sideVec, currentSpeed);
-
-            // Execute positions if no wall geometry intersection occurs
-            if (!checkCollision(nextPosition)) {
-                camera.position.copy(nextPosition);
+            if (moveDir.lengthSq() > 0) {
+                moveDir.normalize();
+                moveDir.applyQuaternion(camera.quaternion);
+                moveDir.y = 0; // Keep movement on flat ground
+                
+                let nextPos = camera.position.clone().addScaledVector(moveDir, speed);
+                if (!checkWall(nextPos)) camera.position.copy(nextPos);
             }
 
-            // Check Win Condition (Reaching the escape door vector)
-            if (camera.position.distanceTo(exitPos) < 1.5) {
+            // Win Condition
+            if (camera.position.distanceTo(exitPos) < 2.0) {
                 alert("YOU ESCAPED THE BACKROOMS!");
                 window.location.reload();
             }
 
             updateMonster();
 
-            // Render loop steps combined manually to display custom trail motion blur
             renderer.clearDepth(); 
             renderer.render(scene, camera);
         }
-
-        // Handle Responsive Window Resizes
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Trigger loop execution on startup
         animate();
     </script>
 </body>
