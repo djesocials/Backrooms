@@ -3,57 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Backrooms - Cross-Platform Stealth Build</title>
+    <title>The Backrooms - True Horror Build</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #d0ca8d; font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none; }
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 0.1s; background: radial-gradient(circle, transparent 20%, rgba(200,0,0,0.8) 120%); opacity: 0; z-index: 5; }
+        #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 0.1s; background: radial-gradient(circle, transparent 20%, rgba(180, 0, 0, 0.8) 130%); opacity: 0; z-index: 5; }
 
-        #blocker { position: absolute; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; pointer-events: auto; z-index: 30; }
-        #instructions { font-size: 20px; cursor: pointer; text-align: center; max-width: 600px; padding: 20px; border: 1px solid #ccaa00; background: rgba(20,20,0,0.5); }
-        .glitch { font-size: 40px; color: #ccaa00; font-weight: bold; text-shadow: 2px 2px #ff0000, -2px -2px #0000ff; animation: glitch 1s infinite linear; }
+        #blocker { position: absolute; width: 100%; height: 100%; background-color: rgba(15,15,5,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #eedd88; pointer-events: auto; z-index: 30; }
+        #instructions { font-size: 18px; cursor: pointer; text-align: center; max-width: 600px; padding: 30px; border: 2px solid #b8a158; background: rgba(30,30,10,0.8); box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .glitch { font-size: 42px; color: #ccaa00; font-weight: bold; text-shadow: 2px 2px #ff0000, -2px -2px #0000ff; animation: glitch 1.2s infinite linear; letter-spacing: 4px; }
         
-        #hud { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 24px; text-shadow: 2px 2px 0 #000; display: none; z-index: 10; }
-        #rec { position: absolute; top: 20px; right: 30px; color: red; font-size: 24px; font-weight: bold; animation: blink 1s infinite; display: none; z-index: 10; }
+        #hud { position: absolute; top: 20px; left: 20px; color: #eedd88; font-size: 22px; text-shadow: 2px 2px 0 #000; display: none; z-index: 10; opacity: 0.8; }
+        #rec { position: absolute; top: 20px; right: 30px; color: #ff3333; font-size: 22px; font-weight: bold; animation: blink 1s infinite; display: none; z-index: 10; }
         
-        #jumpscare { display: none; position: absolute; width: 100%; height: 100%; z-index: 50; flex-direction: column; align-items: center; justify-content: center; background-color: #000; color: #fff; font-size: 120px; font-weight: bold; text-align: center; text-shadow: 5px 5px 0 #f00, -5px -5px 0 #00f; }
+        #jumpscare { display: none; position: absolute; width: 100%; height: 100%; z-index: 50; flex-direction: column; align-items: center; justify-content: center; background-color: #000; color: #fff; font-size: 90px; font-weight: bold; text-align: center; text-shadow: 5px 5px 0 #f00, -5px -5px 0 #00f; }
 
         /* Mobile Controls UI */
         #mobile-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; display: none; }
-        #joystick-base { position: absolute; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: none; transform: translate(-50%, -50%); }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
+        #joystick-base { position: absolute; width: 110px; height: 110px; background: rgba(215, 202, 141, 0.15); border: 3px solid rgba(215, 202, 141, 0.4); border-radius: 50%; display: none; transform: translate(-50%, -50%); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 45px; height: 45px; background: rgba(215, 202, 141, 0.6); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
 
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
         @keyframes glitch { 
             0% { transform: translate(0) }
-            20% { transform: translate(-2px, 2px) }
-            40% { transform: translate(-2px, -2px) }
+            20% { transform: translate(-2px, 1px) }
+            40% { transform: translate(-1px, -2px) }
             60% { transform: translate(2px, 2px) }
-            80% { transform: translate(2px, -2px) }
+            80% { transform: translate(1px, -1px) }
             100% { transform: translate(0) }
         }
     </style>
 </head>
 <body>
     <div id="vignette"></div>
-    <div id="jumpscare">CAUGHT</div>
+    <div id="jumpscare">LOST CONNECTION</div>
     
     <div id="mobile-ui">
         <div id="joystick-base"><div id="joystick-stick"></div></div>
     </div>
 
     <div id="ui-layer">
-        <div id="hud">LEVEL: <span id="level-text">1</span></div>
-        <div id="rec">● REC</div>
+        <div id="hud">ZONE: <span id="level-text">0</span></div>
+        <div id="rec">● AUX REC</div>
     </div>
     
     <div id="blocker">
         <div id="instructions">
-            <p class="glitch">THE BACKROOMS</p>
+            <p class="glitch">LEVEL 0</p>
             <p id="desktop-text">WASD = Move | Mouse = Look | SHIFT = Sprint</p>
-            <p id="mobile-text" style="display: none; color: #fff;">Left Thumb = Move/Sprint | Right Thumb = Look</p>
-            <p style="color: #0f0; font-weight: bold;">[ TAP OR CLICK TO ENTER ]</p>
+            <p id="mobile-text" style="display: none;">Left Screen = Smooth Move & Sprint | Right Screen = Drag Look</p>
+            <p style="color: #b8a158; font-weight: bold; margin-top: 25px;">[ INITIALIZE SENSOR FEED ]</p>
         </div>
     </div>
 
@@ -73,66 +73,113 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
-        // --- DEVICE DETECTION ---
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         // --- 1. CORE SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xd0ca8d); 
-        scene.fog = new THREE.FogExp2(0xd0ca8d, 0.02); 
+        scene.background = new THREE.Color(0xa5995e); 
+        scene.fog = new THREE.FogExp2(0xa5995e, 0.035); 
 
-        const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 100);
+        const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 60);
         camera.position.y = 1.6;
 
         const renderer = new THREE.WebGLRenderer({ powerPreference: "high-performance", antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. AUDIO ENGINE ---
+        // --- 2. AUDIO SYNTHESIZER ENGINE ---
         let audioCtx;
-        let humOscillator, humGain;
+        let humOsc, humGain;
+        let heartOsc, heartGain;
+        let monsterDroneOsc, monsterDroneGain;
+        let nextHeartbeatTime = 0;
 
         function initAudio() {
             if(audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            humOscillator = audioCtx.createOscillator();
-            humOscillator.type = 'sawtooth';
-            humOscillator.frequency.value = 60; 
+            
+            // Fluorescent Hum Sound
+            humOsc = audioCtx.createOscillator();
+            humOsc.type = 'sawtooth';
+            humOsc.frequency.value = 60; 
             humGain = audioCtx.createGain();
-            humGain.gain.value = 0.08; 
+            humGain.gain.value = 0.05; 
             const lowpass = audioCtx.createBiquadFilter();
             lowpass.type = 'lowpass';
-            lowpass.frequency.value = 250;
-            humOscillator.connect(lowpass).connect(humGain).connect(audioCtx.destination);
-            humOscillator.start();
+            lowpass.frequency.value = 180;
+            humOsc.connect(lowpass).connect(humGain).connect(audioCtx.destination);
+            humOsc.start();
+
+            // Monster Proximity Heartbeat/Thumper Engine
+            heartGain = audioCtx.createGain();
+            heartGain.gain.value = 0.0;
+            heartGain.connect(audioCtx.destination);
+
+            // Monster Detection Alarm Drone
+            monsterDroneOsc = audioCtx.createOscillator();
+            monsterDroneOsc.type = 'sawtooth';
+            monsterDroneOsc.frequency.value = 45;
+            monsterDroneGain = audioCtx.createGain();
+            monsterDroneGain.gain.value = 0.0;
+            
+            const droneFilter = audioCtx.createBiquadFilter();
+            droneFilter.type = 'lowpass';
+            droneFilter.frequency.value = 120;
+            
+            monsterDroneOsc.connect(droneFilter).connect(monsterDroneGain).connect(audioCtx.destination);
+            monsterDroneOsc.start();
         }
 
-        function playJumpscare() {
+        function playHeartbeatSound(intensity) {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(55, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.15);
+            
+            gain.gain.setValueAtTime(intensity * 0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playJumpscareSound() {
             if(!audioCtx) return;
             const osc = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.2);
+            
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(85, audioCtx.currentTime);
+            osc2.frequency.linearRampToValueAtTime(140, audioCtx.currentTime + 0.8);
+            
             gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
-            osc.connect(gainNode).connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 1.5);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0);
+            
+            osc.connect(gainNode);
+            osc2.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start(); osc2.start();
+            osc.stop(audioCtx.currentTime + 2.0); osc2.stop(audioCtx.currentTime + 2.0);
         }
 
-        // --- 3. CONTROLS (DESKTOP & MOBILE INTEGRATION) ---
-        let isDead = false;
+        // --- 3. CONTROLS SETUP ---
         let isPlaying = false;
         const blocker = document.getElementById('blocker');
         const hud = document.getElementById('hud');
         const rec = document.getElementById('rec');
         
-        // Desktop
         const controls = new PointerLockControls(camera, document.body);
         const moveState = { forward: false, backward: false, left: false, right: false, sprint: false };
         
-        // Mobile State
         let moveTouchId = null;
         let lookTouchId = null;
         const moveVector = new THREE.Vector2(0, 0);
@@ -175,7 +222,7 @@
                         let dx = touch.clientX - jStartX;
                         let dy = touch.clientY - jStartY;
                         const dist = Math.sqrt(dx*dx + dy*dy);
-                        const maxDist = 40; 
+                        const maxDist = 45; 
                         
                         if(dist > maxDist) {
                             dx = (dx / dist) * maxDist;
@@ -184,8 +231,8 @@
                         
                         jStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
                         
-                        // Push to edge = auto sprint
-                        moveState.sprint = dist > 35;
+                        // Push out all the way to auto sprint
+                        moveState.sprint = dist > 38;
                         
                         moveVector.x = dx / maxDist;
                         moveVector.y = dy / maxDist;
@@ -196,8 +243,8 @@
                         lastLookX = touch.clientX; lastLookY = touch.clientY;
 
                         euler.setFromQuaternion(camera.quaternion);
-                        euler.y -= deltaX * 0.005;
-                        euler.x -= deltaY * 0.005;
+                        euler.y -= deltaX * 0.004;
+                        euler.x -= deltaY * 0.004;
                         euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x));
                         camera.quaternion.setFromEuler(euler);
                     }
@@ -224,11 +271,9 @@
                 hud.style.display = 'block';
                 rec.style.display = 'block';
                 isPlaying = true;
-                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             });
 
         } else {
-            // DESKTOP CONTROLS
             blocker.addEventListener('click', () => {
                 initAudio();
                 controls.lock();
@@ -247,7 +292,6 @@
                 hud.style.display = 'none';
                 rec.style.display = 'none';
                 isPlaying = false;
-                if(audioCtx) audioCtx.suspend();
             });
 
             document.addEventListener('keydown', (e) => {
@@ -270,101 +314,142 @@
             });
         }
 
-        // --- 4. PROCEDURAL TEXTURES ---
+        // --- 4. GRAPHICS & MATTE WALLS GENERATION ---
         function createWallTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#cfb974'; ctx.fillRect(0, 0, 256, 256); ctx.strokeStyle = '#b8a158'; ctx.lineWidth = 6;
-            for(let i = 16; i < 256; i += 64) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
-                for(let j = 32; j < 256; j += 64) {
-                    ctx.beginPath(); ctx.moveTo(i, j); ctx.lineTo(i+10, j+15); ctx.lineTo(i, j+30); ctx.lineTo(i-10, j+15); ctx.fill();
-                }
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#cfb974'; ctx.fillRect(0, 0, 512, 512); 
+            ctx.strokeStyle = '#b09b57'; ctx.lineWidth = 4;
+            // Realistic vertical wallpaper lines
+            for(let i = 0; i < 512; i += 32) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
             }
-            for(let i=0; i<5000; i++) { ctx.fillStyle = `rgba(100, 80, 0, ${Math.random() * 0.05})`; ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2); }
-            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(2, 2); return tex;
-        }
-
-        function createCeilingTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#e8e8e8'; ctx.fillRect(0, 0, 256, 256); ctx.strokeStyle = '#aaaaaa'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, 256, 256);
-            for(let i=0; i<8000; i++) { ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`; ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2); }
-            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(15, 15); return tex;
+            // Tiny noise speckles for texture depth
+            for(let i=0; i<8000; i++) { ctx.fillStyle = `rgba(90, 75, 20, ${Math.random() * 0.08})`; ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2); }
+            const tex = new THREE.CanvasTexture(canvas); return tex;
         }
 
         function createCarpetTexture() {
             const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#a89456'; ctx.fillRect(0, 0, 256, 256);
-            for(let i=0; i<30000; i++) { ctx.fillStyle = `rgba(50, 40, 10, ${Math.random() * 0.15})`; ctx.fillRect(Math.random()*256, Math.random()*256, 1, 1); }
-            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(10, 10); return tex;
+            ctx.fillStyle = '#9e894b'; ctx.fillRect(0, 0, 256, 256);
+            for(let i=0; i<40000; i++) { ctx.fillStyle = `rgba(60, 48, 15, ${Math.random() * 0.2})`; ctx.fillRect(Math.random()*256, Math.random()*256, 1, 1); }
+            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(16, 16); return tex;
+        }
+
+        function createCeilingTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ccc293'; ctx.fillRect(0, 0, 256, 256);
+            ctx.strokeStyle = '#999065'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, 256, 256);
+            const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(16, 16); return tex;
         }
 
         const wallMat = new THREE.MeshLambertMaterial({ map: createWallTexture() }); 
         const floorMat = new THREE.MeshLambertMaterial({ map: createCarpetTexture() }); 
         const ceilingMat = new THREE.MeshLambertMaterial({ map: createCeilingTexture() }); 
 
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), floorMat); floor.rotation.x = -Math.PI / 2; scene.add(floor);
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), ceilingMat); ceiling.rotation.x = Math.PI / 2; ceiling.position.y = 3; scene.add(ceiling);
+        // Enclosed Play Area
+        const arenaSize = 75;
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(arenaSize, arenaSize), floorMat); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(arenaSize, arenaSize), ceilingMat); ceiling.rotation.x = Math.PI / 2; ceiling.position.y = 3.0; scene.add(ceiling);
 
-        // --- 5. GAME LOGIC & MAZE GENERATION ---
-        let currentLevel = 1;
-        let mapSize = 25; 
-        const wallSize = 3;
+        // --- 5. GRID MAZE GENERATION & BORDERS ---
+        let mapSize = 20; 
+        const wallSize = 3.5;
         let walls = [];
         let wallMesh; 
         
-        const exitGeo = new THREE.BoxGeometry(wallSize, 3, wallSize);
-        const exitMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.8 });
-        const exitBlock = new THREE.Mesh(exitGeo, exitMat);
-        const exitLight = new THREE.PointLight(0x00ff00, 1, 15);
-        exitBlock.add(exitLight);
-        scene.add(exitBlock);
+        const exitBlock = new THREE.Mesh(new THREE.BoxGeometry(wallSize, 3, wallSize), new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.15 }));
+        const exitLight = new THREE.PointLight(0x33ff33, 1.5, 12); exitBlock.add(exitLight); scene.add(exitBlock);
 
-        const monsterGeo = new THREE.BoxGeometry(1.2, 2.5, 1.2);
-        const monsterMat = new THREE.MeshBasicMaterial({ color: 0x050505 }); 
-        const monster = new THREE.Mesh(monsterGeo, monsterMat);
-        scene.add(monster);
+        // Monster Asset
+        const monster = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.6, 1.1), new THREE.MeshBasicMaterial({ color: 0x080808 })); scene.add(monster);
 
         let monsterTarget = new THREE.Vector3();
         let isChasing = false;
         const raycaster = new THREE.Raycaster();
 
+        // Build Fluorescent Overhead Panels Mesh Instancing
+        let lightMesh;
+        const lightGeo = new THREE.PlaneGeometry(1.6, 0.8);
+        const lightMat = new THREE.MeshBasicMaterial({ color: 0xfffee0 });
+
         function generateLevel() {
             walls = [];
             if (wallMesh) scene.remove(wallMesh);
+            if (lightMesh) scene.remove(lightMesh);
 
             camera.position.set(0, 1.6, 0);
 
-            const wallGeo = new THREE.BoxGeometry(wallSize, 3, wallSize);
-            wallMesh = new THREE.InstancedMesh(wallGeo, wallMat, mapSize * mapSize);
+            const wallGeo = new THREE.BoxGeometry(wallSize, 3.0, wallSize);
+            // Calculate instances including perimeter borders
+            const totalInstances = (mapSize + 2) * (mapSize + 2) + (mapSize * mapSize);
+            wallMesh = new THREE.InstancedMesh(wallGeo, wallMat, totalInstances);
+            
+            let lightPositions = [];
             let instanceId = 0;
             const dummy = new THREE.Object3D();
 
-            for(let x = -mapSize/2; x < mapSize/2; x++) {
-                for(let z = -mapSize/2; z < mapSize/2; z++) {
-                    if (Math.abs(x) < 2 && Math.abs(z) < 2) continue;
-                    if(Math.random() > 0.65) {
-                        const worldX = x * wallSize;
-                        const worldZ = z * wallSize;
-                        dummy.position.set(worldX, 1.5, worldZ);
-                        dummy.updateMatrix();
+            const half = mapSize / 2;
+
+            // 1. GENERATE UNBREAKABLE OUTER BORDER WALLS
+            for (let x = -half - 1; x <= half + 1; x++) {
+                for (let z = -half - 1; z <= half + 1; z++) {
+                    if (x === -half - 1 || x === half + 1 || z === -half - 1 || z === half + 1) {
+                        const wX = x * wallSize; const wZ = z * wallSize;
+                        dummy.position.set(wX, 1.5, wZ); dummy.updateMatrix();
                         wallMesh.setMatrixAt(instanceId++, dummy.matrix);
-                        walls.push({ minX: worldX - (wallSize / 2), maxX: worldX + (wallSize / 2), minZ: worldZ - (wallSize / 2), maxZ: worldZ + (wallSize / 2) });
+                        walls.push({ minX: wX - wallSize/2, maxX: wX + wallSize/2, minZ: wZ - wallSize/2, maxZ: wZ + wallSize/2 });
                     }
                 }
             }
-            wallMesh.count = instanceId; scene.add(wallMesh);
-            exitBlock.position.set((Math.random() > 0.5 ? 1 : -1) * (mapSize/2.5) * wallSize, 1.5, (Math.random() > 0.5 ? 1 : -1) * (mapSize/2.5) * wallSize);
-            monster.position.set(-exitBlock.position.x, 1.25, -exitBlock.position.z);
+
+            // 2. GENERATE INNER MAZE PROCEDURAL COLUMNS
+            for(let x = -half; x < half; x++) {
+                for(let z = -half; z < half; z++) {
+                    if (Math.abs(x) < 2 && Math.abs(z) < 2) {
+                        // Keep spawn clear but add light overhead
+                        if((x + z) % 3 === 0) lightPositions.push(new THREE.Vector3(x*wallSize, 2.98, z*wallSize));
+                        continue; 
+                    }
+
+                    // Higher density layout logic
+                    if(Math.random() > 0.60) {
+                        const wX = x * wallSize; const wZ = z * wallSize;
+                        dummy.position.set(wX, 1.5, wZ); dummy.updateMatrix();
+                        wallMesh.setMatrixAt(instanceId++, dummy.matrix);
+                        walls.push({ minX: wX - wallSize/2, maxX: wX + wallSize/2, minZ: wZ - wallSize/2, maxZ: wZ + wallSize/2 });
+                    } else {
+                        // Light panels spawn safely inside open hallway spaces
+                        if(Math.random() > 0.75) {
+                            lightPositions.push(new THREE.Vector3(x * wallSize, 2.98, z * wallSize));
+                        }
+                    }
+                }
+            }
+            wallMesh.count = instanceId; 
+            scene.add(wallMesh);
+
+            // Populate ceiling fixtures
+            lightMesh = new THREE.InstancedMesh(lightGeo, lightMat, lightPositions.length);
+            for(let i=0; i<lightPositions.length; i++) {
+                dummy.position.copy(lightPositions[i]);
+                dummy.rotation.x = Math.PI / 2; 
+                dummy.updateMatrix();
+                lightMesh.setMatrixAt(i, dummy.matrix);
+            }
+            scene.add(lightMesh);
+
+            // Place exit far away inside boundaries
+            exitBlock.position.set((Math.random() > 0.5 ? 1 : -1) * (half - 2) * wallSize, 1.5, (Math.random() > 0.5 ? 1 : -1) * (half - 2) * wallSize);
+            monster.position.set(-exitBlock.position.x, 1.3, -exitBlock.position.z);
             monsterTarget.copy(monster.position);
             isChasing = false;
-            document.getElementById('level-text').innerText = currentLevel;
         }
 
-        // --- 6. LIGHTING ---
-        const ambientLight = new THREE.AmbientLight(0xfffff0, 1.5); scene.add(ambientLight);
-        const flashlight = new THREE.PointLight(0xffffff, 0.8, 20); camera.add(flashlight); scene.add(camera);
+        // --- 6. LIGHTING SYSTEM ---
+        const ambientLight = new THREE.AmbientLight(0xfffdbd, 1.1); scene.add(ambientLight);
+        const flashlight = new THREE.PointLight(0xfffebb, 0.7, 18); camera.add(flashlight); scene.add(camera);
 
-        // --- 7. POST-PROCESSING (INTENSE FISHEYE) ---
+        // --- 7. VHS SHADER WITH TUNED/LESS INTENSE GRAIN ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
 
@@ -376,25 +461,29 @@
                 void main() {
                     vec2 uv = vUv; vec2 center = vec2(0.5, 0.5); vec2 d = uv - center; 
                     if(length(d) == 0.0) d = vec2(0.001, 0.0);
-                    float r = length(d); float power = 1.2; float bind = sqrt(0.5);
+                    float r = length(d); float power = 1.15; float bind = sqrt(0.5);
                     uv = center + normalize(d) * tan(r * power) * bind / tan(bind * power);
                     if(uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-                    float offset = 0.003 + sin(uv.y * 10.0 + time) * 0.002;
+                    
+                    float offset = 0.0025 + sin(uv.y * 8.0 + time) * 0.0015;
                     float rColor = texture2D(tDiffuse, uv + vec2(offset, 0.0)).r;
                     float gColor = texture2D(tDiffuse, uv).g;
                     float bColor = texture2D(tDiffuse, uv - vec2(offset, 0.0)).b;
-                    float noise = fract(sin(dot(uv + time, vec2(12.9898,78.233))) * 43758.5453) * 0.06;
+                    
+                    // TUNED DOWN GRAIN NOISE AMPLITUDE FROM 0.06 TO 0.018 (CLEANER GRAPHICS)
+                    float noise = fract(sin(dot(uv + time, vec2(12.9898,78.233))) * 43758.5453) * 0.018;
                     gl_FragColor = vec4(vec3(rColor, gColor, bColor) - noise, 1.0);
                 }
             `
         };
         const vhsPass = new ShaderPass(VhsShader); composer.addPass(vhsPass);
 
-        // --- 8. GAME LOOP ---
+        // --- 8. RUNTIME & TICK LOGIC ---
         const clock = new THREE.Clock();
         const velocity = new THREE.Vector3();
         const direction = new THREE.Vector3();
-        const playerRadius = 0.4; 
+        const playerRadius = 0.45; 
+        let isDead = false;
         let flashInterval;
 
         generateLevel();
@@ -404,19 +493,23 @@
             if (isDead) { camera.lookAt(monster.position); composer.render(); return; }
 
             const delta = Math.min(clock.getDelta(), 0.1);
+            const time = clock.getElapsedTime();
             vhsPass.uniforms["time"].value += delta;
-            flashlight.intensity = Math.random() > 0.98 ? Math.random() * 0.5 + 0.3 : 0.8;
-            if(humGain) humGain.gain.value = 0.08 + Math.random() * 0.02;
+
+            // Authentic flickering fluorescent light simulation
+            flashlight.intensity = Math.random() > 0.985 ? Math.random() * 0.4 + 0.2 : 0.7;
+            if(humGain) humGain.gain.value = 0.04 + Math.random() * 0.02;
 
             if (isPlaying) {
-                const speed = moveState.sprint ? 16.0 : 10.0;
-                const damping = Math.max(0, 1.0 - 10.0 * delta);
+                const speed = moveState.sprint ? 15.5 : 9.5;
+                const damping = Math.max(0, 1.0 - 11.0 * delta);
                 velocity.x *= damping; velocity.z *= damping;
 
                 let forwardAmt = 0; let rightAmt = 0;
                 
                 if(isMobile) {
-                    forwardAmt = -moveVector.y;
+                    // FIXED INVERTED TOUCH DIRECTION CONTROL
+                    forwardAmt = moveVector.y; 
                     rightAmt = moveVector.x;
                 } else {
                     forwardAmt = Number(moveState.forward) - Number(moveState.backward);
@@ -429,12 +522,11 @@
                 velocity.z -= direction.z * speed * delta;
                 velocity.x -= direction.x * speed * delta;
 
-                // Move relative to camera yaw
                 euler.setFromQuaternion(camera.quaternion);
                 const moveVec = new THREE.Vector3(velocity.x * delta, 0, velocity.z * delta);
                 moveVec.applyEuler(new THREE.Euler(0, euler.y, 0, 'YXZ'));
 
-                // Collisions
+                // Axis Sliding Map Collision System
                 let newX = camera.position.x - moveVec.x; let newZ = camera.position.z - moveVec.z;
                 
                 let colX = false;
@@ -445,10 +537,23 @@
                 for(let w of walls) { if (camera.position.x + playerRadius > w.minX && camera.position.x - playerRadius < w.maxX && newZ + playerRadius > w.minZ && newZ - playerRadius < w.maxZ) { colZ = true; break; } }
                 if(!colZ) camera.position.z = newZ; else velocity.z = 0;
 
-                // --- MONSTER AI ---
+                // --- MONSTER SOUNDS & AI ENGAGEMENT ---
                 const distToPlayer = monster.position.distanceTo(camera.position);
+                
+                // Pulsing Proximity Audio Synthesizer Loop
+                if (audioCtx && time > nextHeartbeatTime) {
+                    let proximityScale = Math.max(0, 1.0 - (distToPlayer / 22));
+                    if (proximityScale > 0) {
+                        playHeartbeatSound(proximityScale);
+                        // Beats quicken as distance decreases
+                        nextHeartbeatTime = time + Math.max(0.2, (distToPlayer / 22) * 1.1);
+                    } else {
+                        nextHeartbeatTime = time + 1.2;
+                    }
+                }
+
                 const vignette = document.getElementById('vignette');
-                vignette.style.opacity = distToPlayer < 25 ? 1.0 - (distToPlayer / 25) : 0;
+                vignette.style.opacity = distToPlayer < 22 ? 1.0 - (distToPlayer / 22) : 0;
 
                 const rayOrigin = new THREE.Vector3(monster.position.x, 1.5, monster.position.z);
                 const dirToPlayer = new THREE.Vector3().subVectors(camera.position, rayOrigin).normalize();
@@ -458,11 +563,18 @@
                 let canSeePlayer = !(intersects.length > 0 && intersects[0].distance < distToPlayer);
 
                 if (canSeePlayer) {
-                    monsterTarget.copy(camera.position); monsterTarget.y = 1.25; isChasing = true;
+                    monsterTarget.copy(camera.position); monsterTarget.y = 1.3; 
+                    if (!isChasing) {
+                        isChasing = true;
+                        if(monsterDroneGain) monsterDroneGain.gain.setTargetAtTime(0.4, audioCtx.currentTime, 0.1);
+                    }
                 } else {
-                    if (isChasing && monster.position.distanceTo(monsterTarget) < 1.0) isChasing = false;
-                    if (!isChasing && (monster.position.distanceTo(monsterTarget) < 1.0 || Math.random() < 0.02)) {
-                        monsterTarget.set(monster.position.x + (Math.random() - 0.5) * 15, 1.25, monster.position.z + (Math.random() - 0.5) * 15);
+                    if (isChasing && monster.position.distanceTo(monsterTarget) < 1.0) {
+                        isChasing = false;
+                        if(monsterDroneGain) monsterDroneGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.5);
+                    }
+                    if (!isChasing && (monster.position.distanceTo(monsterTarget) < 1.0 || Math.random() < 0.015)) {
+                        monsterTarget.set(monster.position.x + (Math.random() - 0.5) * 16, 1.3, monster.position.z + (Math.random() - 0.5) * 16);
                     }
                 }
 
@@ -470,20 +582,22 @@
                 moveDir.y = 0;
                 if (moveDir.lengthSq() > 0) {
                     moveDir.normalize();
-                    monster.position.addScaledVector(moveDir, 7.0 * delta);
+                    // Monster speed runs slower than basic player movement speed
+                    monster.position.addScaledVector(moveDir, 6.8 * delta);
                     monster.lookAt(monsterTarget.x, monster.position.y, monsterTarget.z);
                 }
 
-                if (distToPlayer < 1.6) triggerJumpscare();
-                if (camera.position.distanceTo(exitBlock.position) < 2.5) { currentLevel++; generateLevel(); }
+                if (distToPlayer < 1.5) triggerJumpscare();
+                if (camera.position.distanceTo(exitBlock.position) < 2.2) { generateLevel(); }
             }
             composer.render();
         }
 
         function triggerJumpscare() {
             isDead = true; isPlaying = false;
+            if(monsterDroneGain) monsterDroneGain.gain.setValueAtTime(0, audioCtx.currentTime);
             if(!isMobile) controls.unlock();
-            playJumpscare();
+            playJumpscareSound();
             camera.lookAt(monster.position);
             
             const jsDiv = document.getElementById('jumpscare');
@@ -495,21 +609,21 @@
             
             let flashCount = 0;
             flashInterval = setInterval(() => {
-                jsDiv.style.backgroundColor = flashCount % 2 === 0 ? '#ff0000' : '#000000';
+                jsDiv.style.backgroundColor = flashCount % 2 === 0 ? '#de2929' : '#000000';
                 jsDiv.style.color = flashCount % 2 === 0 ? '#000000' : '#ffffff';
-                jsDiv.style.transform = `translate(${(Math.random()-0.5)*20}px, ${(Math.random()-0.5)*20}px)`;
+                jsDiv.style.transform = `translate(${(Math.random()-0.5)*35}px, ${(Math.random()-0.5)*35}px)`;
                 flashCount++;
-            }, 40);
+            }, 35);
             
             setTimeout(() => {
                 clearInterval(flashInterval);
                 jsDiv.style.transform = 'translate(0,0)';
-                isDead = false; currentLevel = 1;
+                isDead = false; 
                 jsDiv.style.display = 'none';
                 blocker.style.display = 'flex';
                 if(isMobile) document.getElementById('mobile-ui').style.display = 'block';
                 generateLevel();
-            }, 3000);
+            }, 2500);
         }
 
         window.addEventListener('resize', () => {
