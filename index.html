@@ -38,10 +38,10 @@
         }
         #sniffer-canvas { width: 100%; height: 100%; }
 
-        /* Mobile Controls */
+        /* Mobile Controls Overlay */
         #mobile-controls {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; display: none;
+            z-index: 20; display: none; pointer-events: none;
         }
         #joystick-zone {
             position: absolute; bottom: 40px; left: 40px;
@@ -67,7 +67,7 @@
         button {
             padding: 15px 30px; font-size: 20px; font-family: 'Courier New', monospace;
             background: #222; color: #fff; border: 1px solid #fff; cursor: pointer;
-            margin-top: 20px;
+            margin-top: 20px; pointer-events: auto;
         }
         button:hover { background: #444; }
     </style>
@@ -111,23 +111,17 @@ const GAME_STATE = {
     sanity: 100.0,
     power: 100.0,
     isFlashlightOn: true,
-    time: 0,
-    // Enhanced mobile check to trap responsive views and modern mobile hardware signatures
-    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-              ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)
+    time: 0
 };
 
-// Audio Context
 let audioCtx;
 
-// Three.js Core
 const canvas = document.getElementById('gameCanvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
-// BRIGHTNESS FIX: Lightened the void/fog color slightly away from pitch black to an eerie low-light atmosphere
 scene.fog = new THREE.FogExp2(0x12110d, 0.05); 
 renderer.setClearColor(scene.fog.color);
 
@@ -137,7 +131,6 @@ camContainer.position.set(0, 1.7, 0);
 scene.add(camContainer);
 camContainer.add(camera);
 
-// Render Targets for VHS Shader
 const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
 const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quadScene = new THREE.Scene();
@@ -170,7 +163,6 @@ const vhsMaterial = new THREE.ShaderMaterial({
 
         void main() {
             vec2 uv = vUv;
-            
             float y = uv.y * 100.0;
             float jitter = sin(y + time * 10.0) * distortionAmount * rand(vec2(time, uv.y));
             uv.x += jitter;
@@ -187,7 +179,7 @@ const vhsMaterial = new THREE.ShaderMaterial({
 
             vec3 color = vec3(r, g, b) - scanline + noise;
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
-            color = mix(color, vec3(luma), 0.2); // Slipped down desaturation slightly for environment readability
+            color = mix(color, vec3(luma), 0.2); 
             color = pow(color, vec3(1.1)); 
 
             gl_FragColor = vec4(color, 1.0);
@@ -200,7 +192,6 @@ quadScene.add(quad);
 /**
  * ENVIRONMENT GENERATION
  */
-// BRIGHTNESS FIX: Added an omnipresent, dull, ambient yellow hum lighting to represent industrial fluorescents
 const ambientLight = new THREE.AmbientLight(0xebe3c3, 0.22);
 scene.add(ambientLight);
 
@@ -243,7 +234,6 @@ for(let x = -mazeSize/2; x < mazeSize/2; x++) {
     }
 }
 
-// BRIGHTNESS FIX: Significantly boosted player flashlight intensity (from 1.5 to 3.5) and widened field angle
 const flashLight = new THREE.SpotLight(0xffffff, 3.5, 35, Math.PI/4, 0.6, 1);
 flashLight.position.set(0, 0, 0);
 flashLight.target.position.set(0, 0, -1);
@@ -251,7 +241,7 @@ camera.add(flashLight);
 camera.add(flashLight.target);
 
 /**
- * THE SMILER (ENTITY AI) - PROCEDURAL HORROR TEXTURE
+ * THE SMILER (ENTITY AI)
  */
 const faceCanvas = document.createElement('canvas');
 faceCanvas.width = 256;
@@ -260,7 +250,6 @@ const fCtx = faceCanvas.getContext('2d');
 
 fCtx.fillStyle = '#000000';
 fCtx.fillRect(0, 0, 256, 256);
-
 fCtx.fillStyle = '#ffffff';
 fCtx.shadowBlur = 15;
 fCtx.shadowColor = '#ffffff';
@@ -294,113 +283,127 @@ const smiler = new THREE.Mesh(smilerGeo, smilerMat);
 smiler.position.set(12, 1.3, -12);
 scene.add(smiler);
 
-const smilerState = {
-    state: 'STALK', 
-    speed: 1.8
-};
+const smilerState = { state: 'STALK', speed: 1.8 };
 
 /**
- * INPUT HANDLING
+ * UNIFIED POINTER & KEYBOARD INPUT SYSTEM
  */
 let moveVector = new THREE.Vector3();
 let lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let keys = { w: false, a: false, s: false, d: false };
 
-if (GAME_STATE.isMobile) {
+// Show mobile overlay only if hardware supports touch features
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     document.getElementById('mobile-controls').style.display = 'block';
-    
-    const zone = document.getElementById('joystick-zone');
-    const knob = document.getElementById('joystick-knob');
-    let stickActive = false;
-    let stickCenter = { x: 0, y: 0 };
-    
-    // JOYSTICK FIX: Added e.preventDefault() to block native screen drag actions from freezing input arrays
-    zone.addEventListener('touchstart', e => {
-        e.preventDefault();
-        stickActive = true;
-        const rect = zone.getBoundingClientRect();
-        stickCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
-        handleStick(e.touches[0]);
-    }, { passive: false });
-    
-    zone.addEventListener('touchmove', e => { 
-        e.preventDefault();
-        if(stickActive) handleStick(e.touches[0]); 
-    }, { passive: false });
-    
-    zone.addEventListener('touchend', e => {
-        e.preventDefault();
-        stickActive = false;
-        knob.style.transform = `translate(-50%, -50%)`;
-        moveVector.set(0, 0, 0);
-    }, { passive: false });
-
-    // JOYSTICK FIX: Normalized tracking math via structural trigonometry for seamless scaling response
-    function handleStick(touch) {
-        let dx = touch.clientX - stickCenter.x;
-        let dy = touch.clientY - stickCenter.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const maxDist = 40;
-        const clampDist = Math.min(dist, maxDist);
-        const angle = Math.atan2(dy, dx);
-        
-        knob.style.transform = `translate(calc(-50% + ${Math.cos(angle)*clampDist}px), calc(-50% + ${Math.sin(angle)*clampDist}px))`;
-        
-        const intensity = clampDist / maxDist;
-        moveVector.set(Math.cos(angle) * intensity, 0, Math.sin(angle) * intensity);
-    }
-
-    // Look Drag
-    const lookZone = document.getElementById('look-zone');
-    let lastTouch = null;
-    lookZone.addEventListener('touchstart', e => { 
-        e.preventDefault();
-        lastTouch = e.touches[0]; 
-    }, { passive: false });
-    
-    lookZone.addEventListener('touchmove', e => {
-        e.preventDefault();
-        if(!lastTouch) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - lastTouch.clientX;
-        const dy = touch.clientY - lastTouch.clientY;
-        
-        lookEuler.y -= dx * 0.006;
-        lookEuler.x -= dy * 0.006;
-        lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
-        
-        lastTouch = touch;
-    }, { passive: false });
-    
-    lookZone.addEventListener('touchend', e => { 
-        e.preventDefault();
-        lastTouch = null; 
-    }, { passive: false });
-
-} else {
-    document.addEventListener('keydown', e => {
-        if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-    });
-    document.addEventListener('keyup', e => {
-        if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
-    });
-    
-    document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-    document.addEventListener('mousemove', e => {
-        if(document.pointerLockElement === document.body) {
-            lookEuler.y -= e.movementX * 0.002;
-            lookEuler.x -= e.movementY * 0.002;
-            lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
-        }
-    });
-    
-    document.getElementById('start-btn').addEventListener('click', () => {
-        document.body.requestPointerLock();
-    });
 }
 
+// Global Keyboard Tracking (Always active for hybrid setups)
+document.addEventListener('keydown', e => {
+    if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+});
+document.addEventListener('keyup', e => {
+    if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+});
+
+// Desktop Mouse Look Pipeline
+document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+document.addEventListener('mousemove', e => {
+    if(document.pointerLockElement === document.body) {
+        lookEuler.y -= e.movementX * 0.002;
+        lookEuler.x -= e.movementY * 0.002;
+        lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
+    }
+});
+
+// --- Hardware-Isolated Pointer API Tracking ---
+const zone = document.getElementById('joystick-zone');
+const knob = document.getElementById('joystick-knob');
+let joystickPointerId = null;
+let stickCenter = { x: 0, y: 0 };
+
+zone.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    joystickPointerId = e.pointerId;
+    zone.setPointerCapture(e.pointerId); // Forces window frame boundary tracking updates
+    const rect = zone.getBoundingClientRect();
+    stickCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+    handleJoystickMove(e);
+});
+
+zone.addEventListener('pointermove', e => {
+    if(e.pointerId === joystickPointerId) {
+        e.preventDefault();
+        handleJoystickMove(e);
+    }
+});
+
+const releaseJoystick = e => {
+    if(e.pointerId === joystickPointerId) {
+        e.preventDefault();
+        joystickPointerId = null;
+        knob.style.transform = `translate(-50%, -50%)`;
+        moveVector.set(0, 0, 0);
+    }
+};
+zone.addEventListener('pointerup', releaseJoystick);
+zone.addEventListener('pointercancel', releaseJoystick);
+
+function handleJoystickMove(e) {
+    let dx = e.clientX - stickCenter.x;
+    let dy = e.clientY - stickCenter.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDist = 40;
+    const clampDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(dy, dx);
+    
+    knob.style.transform = `translate(calc(-50% + ${Math.cos(angle)*clampDist}px), calc(-50% + ${Math.sin(angle)*clampDist}px))`;
+    
+    const intensity = clampDist / maxDist;
+    moveVector.set(Math.cos(angle) * intensity, 0, Math.sin(angle) * intensity);
+}
+
+// Touch Screen Look API Tracking
+const lookZone = document.getElementById('look-zone');
+let lookPointerId = null;
+let lastPointerX = 0;
+let lastPointerY = 0;
+
+lookZone.addEventListener('pointerdown', e => {
+    if(lookPointerId === null) {
+        e.preventDefault();
+        lookPointerId = e.pointerId;
+        lookZone.setPointerCapture(e.pointerId);
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+    }
+});
+
+lookZone.addEventListener('pointermove', e => {
+    if(e.pointerId === lookPointerId) {
+        e.preventDefault();
+        const dx = e.clientX - lastPointerX;
+        const dy = e.clientY - lastPointerY;
+        
+        lookEuler.y -= dx * 0.005;
+        lookEuler.x -= dy * 0.005;
+        lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
+        
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+    }
+});
+
+const releaseLook = e => {
+    if(e.pointerId === lookPointerId) {
+        e.preventDefault();
+        lookPointerId = null;
+    }
+};
+lookZone.addEventListener('pointerup', releaseLook);
+lookZone.addEventListener('pointercancel', releaseLook);
+
 /**
- * STATIC SNIFFER UI (2D CANVAS)
+ * STATIC SNIFFER UI
  */
 const snifferCanvas = document.getElementById('sniffer-canvas');
 const sCtx = snifferCanvas.getContext('2d');
@@ -424,7 +427,7 @@ function drawSniffer(distance) {
 }
 
 /**
- * AUDIO SYSTEM (Web Audio API)
+ * AUDIO SYSTEM
  */
 function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -501,11 +504,13 @@ function update(delta) {
     let speed = 4.0 * delta;
     let velocity = new THREE.Vector3();
     
-    if(!GAME_STATE.isMobile) {
-        if(keys.w) velocity.z -= 1;
-        if(keys.s) velocity.z += 1;
-        if(keys.a) velocity.x -= 1;
-        if(keys.d) velocity.x += 1;
+    // Seamlessly blend keyboard input and touch vectors without blocking either approach
+    if(keys.w) velocity.z -= 1;
+    if(keys.s) velocity.z += 1;
+    if(keys.a) velocity.x -= 1;
+    if(keys.d) velocity.x += 1;
+
+    if(velocity.lengthSq() > 0) {
         velocity.normalize().multiplyScalar(speed);
     } else {
         velocity.copy(moveVector).multiplyScalar(speed);
@@ -534,7 +539,7 @@ function update(delta) {
     });
 
     if(GAME_STATE.isFlashlightOn) {
-        GAME_STATE.power -= delta * 0.3; // Extended flashlight window slightly
+        GAME_STATE.power -= delta * 0.3; 
         flashLight.intensity = (GAME_STATE.power / 100) * 3.5 + (Math.random() * 0.15);
         if(GAME_STATE.power <= 0) {
             GAME_STATE.isFlashlightOn = false;
@@ -610,6 +615,12 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('start-screen').style.display = 'none';
     initAudio();
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    
+    // Only fire pointer lock API mechanics if touch environments are absent
+    if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+        document.body.requestPointerLock();
+    }
+    
     GAME_STATE.isRunning = true;
     clock.start();
 });
