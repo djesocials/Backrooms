@@ -47,17 +47,7 @@
         }
         #health-fill { background: #ff3333; box-shadow: 0 0 8px #ff0000; }
         #stamina-fill { background: #33ff33; box-shadow: 0 0 8px #00ff00; }
-        #sanity-ui { color: #aaa; font-size: 14px; margin-bottom: 4px; }
         
-        /* Static Sniffer */
-        #sniffer-container {
-            position: absolute; bottom: 20px; left: 20px;
-            width: 150px; height: 100px;
-            border: 3px solid #0f0; background: rgba(0, 20, 0, 0.8);
-            border-radius: 5px; box-shadow: 0 0 10px #0f0 inset;
-        }
-        #sniffer-canvas { width: 100%; height: 100%; }
-
         /* Mobile Controls Visual layer */
         #mobile-interface {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -93,7 +83,7 @@
     <div id="start-screen">
         <h1>THE BACKROOMS</h1>
         <p>Desktop: WASD + Mouse to Look (Hold Shift to Sprint)</p>
-        <p>Mobile: Left Joystick + Right Screen Drag (Push Joystick Out to Sprint)</p>
+        <p>Mobile: Left Screen Joystick + Right Screen Drag (Push Joystick Out to Sprint)</p>
         <p>WARNING: Flashing lights and loud noises.</p>
         <button id="start-btn">ENTER LEVEL 0</button>
     </div>
@@ -105,7 +95,6 @@
         <div id="battery-ui">PWR: 100%</div>
         
         <div id="hud-stats-container">
-            <div id="sanity-ui">SANITY: 100%</div>
             <div class="bar-wrapper">
                 <span>VIT</span>
                 <div class="meter-container"><div id="health-fill" class="meter-fill"></div></div>
@@ -114,10 +103,6 @@
                 <span>STM</span>
                 <div class="meter-container"><div id="stamina-fill" class="meter-fill"></div></div>
             </div>
-        </div>
-        
-        <div id="sniffer-container">
-            <canvas id="sniffer-canvas" width="150" height="100"></canvas>
         </div>
     </div>
 
@@ -133,7 +118,6 @@
  */
 const GAME_STATE = {
     isRunning: false,
-    sanity: 100.0,
     power: 100.0,
     health: 100.0,
     stamina: 100.0,
@@ -163,13 +147,13 @@ const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quadScene = new THREE.Scene();
 
 /**
- * VHS FRAGMENT SHADER
+ * CLEAN FOUND FOOTAGE SHADER (Less 'Glitchy')
  */
 const vhsMaterial = new THREE.ShaderMaterial({
     uniforms: {
         tDiffuse: { value: null },
         time: { value: 0.0 },
-        distortionAmount: { value: 0.005 }
+        distortionAmount: { value: 0.001 } // Kept extremely low
     },
     vertexShader: `
         varying vec2 vUv;
@@ -190,24 +174,29 @@ const vhsMaterial = new THREE.ShaderMaterial({
 
         void main() {
             vec2 uv = vUv;
-            float y = uv.y * 100.0;
-            float jitter = sin(y + time * 10.0) * distortionAmount * rand(vec2(time, uv.y));
-            uv.x += jitter;
+            
+            // REMOVED: Tape Tracking Jitter (Horizontal glitching)
 
-            float rAmount = distortionAmount * 2.0;
-            float bAmount = -distortionAmount * 2.0;
+            // MODIFIED: Reduced Chromatic Aberration offset
+            float rAmount = distortionAmount * 1.1; 
+            float bAmount = -distortionAmount * 1.1;
 
             float r = texture2D(tDiffuse, vec2(uv.x + rAmount, uv.y)).r;
             float g = texture2D(tDiffuse, uv).g;
             float b = texture2D(tDiffuse, vec2(uv.x + bAmount, uv.y)).b;
 
-            float scanline = sin(uv.y * 800.0) * 0.04;
-            float noise = (rand(uv * time) - 0.5) * 0.1;
+            // MODIFIED: Fainter, strictly visual scanlines
+            float scanline = sin(uv.y * 800.0) * 0.02;
+            
+            // MODIFIED: Significantly reduced Digital Noise grain
+            float noise = (rand(uv * time) - 0.5) * 0.03;
 
+            // Color grading and composition
             vec3 color = vec3(r, g, b) - scanline + noise;
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
-            color = mix(color, vec3(luma), 0.2); 
-            color = pow(color, vec3(1.1)); 
+            
+            color = mix(color, vec3(luma), 0.15); // Slight desaturation
+            color = pow(color, vec3(1.1)); // Mild gamma boost
 
             gl_FragColor = vec4(color, 1.0);
         }
@@ -316,7 +305,7 @@ const smilerState = { state: 'STALK' };
  * UNIFIED GLOBAL INTERCEPTION CONTROL ENGINE
  */
 let moveVector = new THREE.Vector3();
-let joystickRawIntensity = 0; // Tracks joystick throw distance
+let joystickRawIntensity = 0; 
 let lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let keys = { w: false, a: false, s: false, d: false, shift: false };
 
@@ -420,30 +409,6 @@ function handleJoystickCalculation(e) {
 }
 
 /**
- * STATIC SNIFFER UI
- */
-const snifferCanvas = document.getElementById('sniffer-canvas');
-const sCtx = snifferCanvas.getContext('2d');
-function drawSniffer(distance) {
-    sCtx.clearRect(0, 0, snifferCanvas.width, snifferCanvas.height);
-    sCtx.beginPath();
-    sCtx.strokeStyle = '#0f0';
-    sCtx.lineWidth = 2;
-    
-    const intensity = Math.max(0, (25 - distance) / 25); 
-    const amplitude = 5 + (intensity * 40);
-    const frequency = 0.05 + (intensity * 0.2);
-
-    for (let x = 0; x < snifferCanvas.width; x++) {
-        const noise = (Math.random() - 0.5) * intensity * 10;
-        const y = snifferCanvas.height/2 + Math.sin(x * frequency + GAME_STATE.time * 10) * amplitude + noise;
-        if (x === 0) sCtx.moveTo(x, y);
-        else sCtx.lineTo(x, y);
-    }
-    sCtx.stroke();
-}
-
-/**
  * AUDIO SYSTEM
  */
 function initAudio() {
@@ -452,7 +417,7 @@ function initAudio() {
 
 function triggerJumpscare() {
     GAME_STATE.isRunning = false;
-    vhsMaterial.uniforms.distortionAmount.value = 0.8; 
+    vhsMaterial.uniforms.distortionAmount.value = 0.8; // Shatter color tracking on death
     
     document.getElementById('ui-layer').innerHTML = `
         <div style="position:absolute; top:0; left:0; width:100%; height:100%; background:red; opacity:0.15; pointer-events:none;"></div>
@@ -511,7 +476,6 @@ function checkCollision(pos) {
 function update(delta) {
     GAME_STATE.time += delta;
 
-    // Timer Update
     const mins = Math.floor(GAME_STATE.time / 60).toString().padStart(2, '0');
     const secs = Math.floor(GAME_STATE.time % 60).toString().padStart(2, '0');
     const ms = Math.floor((GAME_STATE.time % 1) * 100).toString().padStart(2, '0');
@@ -519,26 +483,23 @@ function update(delta) {
 
     camera.quaternion.slerp(new THREE.Quaternion().setFromEuler(lookEuler), Math.exp(-delta * 15));
 
-    // Calculate movement request
     let keyboardMoving = (keys.w || keys.s || keys.a || keys.d);
     let joystickMoving = (moveVector.lengthSq() > 0.01);
     let isMoving = keyboardMoving || joystickMoving;
 
-    // Stamina & Sprinting System Logic
     let wantsToSprint = keys.shift || (joystickMoving && joystickRawIntensity > 0.75);
     let isSprinting = isMoving && wantsToSprint && GAME_STATE.stamina > 5;
 
     if (isSprinting) {
-        GAME_STATE.stamina -= delta * 22.0; // Drain stamina over roughly 4.5 seconds
+        GAME_STATE.stamina -= delta * 22.0; 
         if (GAME_STATE.stamina < 0) GAME_STATE.stamina = 0;
     } else {
-        let recoveryRate = isMoving ? 7.0 : 18.0; // Recovers faster if standing completely stationary
+        let recoveryRate = isMoving ? 7.0 : 18.0; 
         GAME_STATE.stamina += delta * recoveryRate;
         if (GAME_STATE.stamina > 100) GAME_STATE.stamina = 100;
     }
     document.getElementById('stamina-fill').style.width = `${GAME_STATE.stamina}%`;
 
-    // Movement Speeds
     let baseSpeedSetting = isSprinting ? 5.2 : 2.8; 
     let speed = baseSpeedSetting * delta;
     let velocity = new THREE.Vector3();
@@ -556,7 +517,6 @@ function update(delta) {
 
     velocity.applyEuler(new THREE.Euler(0, lookEuler.y, 0));
 
-    // Collisions
     let newPos = camContainer.position.clone().add(velocity);
     if(!checkCollision(new THREE.Vector3(newPos.x, camContainer.position.y, camContainer.position.z))) {
         camContainer.position.x = newPos.x;
@@ -565,7 +525,6 @@ function update(delta) {
         camContainer.position.z = newPos.z;
     }
 
-    // Camera Bobbing
     if(velocity.lengthSq() > 0.0001) {
         let bobFreq = isSprinting ? 16 : 10;
         let bobAmp = isSprinting ? 0.12 : 0.06;
@@ -574,14 +533,12 @@ function update(delta) {
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0, 0.1);
     }
 
-    // Environment Flickering
     scene.traverse(child => {
         if(child.isPointLight && child.userData.flicker) {
             child.intensity = Math.random() > 0.8 ? 0 : 0.7;
         }
     });
 
-    // Flashlight Battery consumption
     if(GAME_STATE.isFlashlightOn) {
         GAME_STATE.power -= delta * 0.3; 
         flashLight.intensity = (GAME_STATE.power / 100) * 3.5 + (Math.random() * 0.15);
@@ -593,9 +550,9 @@ function update(delta) {
     }
     document.getElementById('battery-ui').innerText = `PWR: ${Math.floor(GAME_STATE.power)}%`;
 
-    // Smiler AI Proximity Radar
     const distToSmiler = camContainer.position.distanceTo(smiler.position);
-    drawSniffer(distToSmiler);
+    
+    // REMOVED: Static Sniffer Wave drawing
 
     const dirToSmiler = new THREE.Vector3().subVectors(smiler.position, camContainer.position).normalize();
     const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -610,41 +567,30 @@ function update(delta) {
         smilerState.state = 'STALK';
     }
 
-    // Process Smiler Speed Movement (Nerfed Speeds Applied Here)
     if (smilerState.state === 'STALK' || smilerState.state === 'CHARGE') {
         const moveSpeed = smilerState.state === 'CHARGE' ? 2.8 : 0.8; 
         smiler.position.add(dirToSmiler.multiplyScalar(-moveSpeed * delta));
         smiler.lookAt(camContainer.position); 
     }
 
-    // Sanity Depletion
-    if(!GAME_STATE.isFlashlightOn) GAME_STATE.sanity -= 1.5 * delta;
-    if(distToSmiler < 15) GAME_STATE.sanity -= 5.0 * delta;
-    GAME_STATE.sanity = Math.max(0, GAME_STATE.sanity);
-    document.getElementById('sanity-ui').innerText = `SANITY: ${Math.floor(GAME_STATE.sanity)}%`;
+    // REMOVED: Sanity depletion logic
 
-    // Health Damage Calculation (Replaced instant kill loop)
     if (distToSmiler < 2.0) {
-        GAME_STATE.health -= delta * 35.0; // It takes about ~3 seconds of close physical contact to die
-        if (GAME_STATE.health < 0) GAME_STATE.health = 0;
-        
-        // Add a visual alert glitch to the health bar border while taking damage
+        GAME_STATE.health -= delta * 35.0; 
         document.getElementById('health-fill').style.backgroundColor = Math.sin(GAME_STATE.time * 25) > 0 ? '#ffffff' : '#ff3333';
     } else {
         document.getElementById('health-fill').style.backgroundColor = '#ff3333';
     }
     document.getElementById('health-fill').style.width = `${GAME_STATE.health}%`;
 
-    // Global Post Process Camcorder Jitter Calculation
-    let baseDistortion = 0.003;
-    if (GAME_STATE.sanity < 50) baseDistortion += (50 - GAME_STATE.sanity) * 0.0005;
-    if (GAME_STATE.health < 50) baseDistortion += (50 - GAME_STATE.health) * 0.001; // Glitch rendering worsens as health degrades
+    // Static Shader settings (Jitter removed from shader, sanity removed from logic)
+    let baseDistortion = 0.001;
+    if (GAME_STATE.health < 50) baseDistortion += (50 - GAME_STATE.health) * 0.0005; // Slight color bleed worse at low health
     vhsMaterial.uniforms.distortionAmount.value = baseDistortion;
     vhsMaterial.uniforms.time.value = GAME_STATE.time;
 
     flashLight.target.updateMatrixWorld(); 
 
-    // Kill execution condition
     if (GAME_STATE.health <= 0 && GAME_STATE.isRunning) {
         camera.lookAt(smiler.position); 
         triggerJumpscare();
