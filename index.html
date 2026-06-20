@@ -10,7 +10,6 @@
             background-color: #000; overflow: hidden;
             font-family: 'Courier New', Courier, monospace;
             user-select: none; -webkit-user-select: none;
-            /* Forcibly stops mobile browsers from hijacking drags for scrolling/zooming */
             touch-action: none; 
         }
         #gameCanvas {
@@ -29,7 +28,26 @@
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
         
         #battery-ui { position: absolute; top: 20px; right: 20px; font-size: 20px; }
-        #sanity-ui { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: #aaa; }
+        
+        /* Stats HUD Container */
+        #hud-stats-container {
+            position: absolute; bottom: 20px; right: 20px;
+            display: flex; flex-direction: column; align-items: flex-end;
+            gap: 8px; font-size: 16px; font-weight: bold;
+        }
+        .bar-wrapper {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .meter-container {
+            width: 150px; height: 10px; border: 1px solid #fff;
+            background: rgba(0, 0, 0, 0.5); box-shadow: 0 0 4px rgba(0,0,0,0.8);
+        }
+        .meter-fill {
+            height: 100%; width: 100%; transition: width 0.05s linear;
+        }
+        #health-fill { background: #ff3333; box-shadow: 0 0 8px #ff0000; }
+        #stamina-fill { background: #33ff33; box-shadow: 0 0 8px #00ff00; }
+        #sanity-ui { color: #aaa; font-size: 14px; margin-bottom: 4px; }
         
         /* Static Sniffer */
         #sniffer-container {
@@ -40,7 +58,7 @@
         }
         #sniffer-canvas { width: 100%; height: 100%; }
 
-        /* Mobile Controls Visual layer (inputs handled globally via window) */
+        /* Mobile Controls Visual layer */
         #mobile-interface {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 20; pointer-events: none;
@@ -74,8 +92,8 @@
 
     <div id="start-screen">
         <h1>THE BACKROOMS</h1>
-        <p>Desktop: WASD + Mouse to Look</p>
-        <p>Mobile: Left Screen Joystick + Right Screen Drag to Look</p>
+        <p>Desktop: WASD + Mouse to Look (Hold Shift to Sprint)</p>
+        <p>Mobile: Left Joystick + Right Screen Drag (Push Joystick Out to Sprint)</p>
         <p>WARNING: Flashing lights and loud noises.</p>
         <button id="start-btn">ENTER LEVEL 0</button>
     </div>
@@ -85,7 +103,18 @@
     <div id="ui-layer">
         <div id="camcorder-ui"><span class="blinking-rec">●</span> REC <span id="timecode">00:00:00</span></div>
         <div id="battery-ui">PWR: 100%</div>
-        <div id="sanity-ui">SAN: 100%</div>
+        
+        <div id="hud-stats-container">
+            <div id="sanity-ui">SANITY: 100%</div>
+            <div class="bar-wrapper">
+                <span>VIT</span>
+                <div class="meter-container"><div id="health-fill" class="meter-fill"></div></div>
+            </div>
+            <div class="bar-wrapper">
+                <span>STM</span>
+                <div class="meter-container"><div id="stamina-fill" class="meter-fill"></div></div>
+            </div>
+        </div>
         
         <div id="sniffer-container">
             <canvas id="sniffer-canvas" width="150" height="100"></canvas>
@@ -106,6 +135,8 @@ const GAME_STATE = {
     isRunning: false,
     sanity: 100.0,
     power: 100.0,
+    health: 100.0,
+    stamina: 100.0,
     isFlashlightOn: true,
     time: 0
 };
@@ -279,21 +310,26 @@ const smiler = new THREE.Mesh(smilerGeo, smilerMat);
 smiler.position.set(12, 1.3, -12);
 scene.add(smiler);
 
-const smilerState = { state: 'STALK', speed: 1.8 };
+const smilerState = { state: 'STALK' };
 
 /**
  * UNIFIED GLOBAL INTERCEPTION CONTROL ENGINE
  */
 let moveVector = new THREE.Vector3();
+let joystickRawIntensity = 0; // Tracks joystick throw distance
 let lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
-let keys = { w: false, a: false, s: false, d: false };
+let keys = { w: false, a: false, s: false, d: false, shift: false };
 
 // Keyboard Tracking
 document.addEventListener('keydown', e => {
-    if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+    let k = e.key.toLowerCase();
+    if(k in keys) keys[k] = true;
+    if(e.key === 'Shift') keys.shift = true;
 });
 document.addEventListener('keyup', e => {
-    if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+    let k = e.key.toLowerCase();
+    if(k in keys) keys[k] = false;
+    if(e.key === 'Shift') keys.shift = false;
 });
 
 // Desktop Mouse Look Pipeline
@@ -306,7 +342,7 @@ document.addEventListener('mousemove', e => {
     }
 });
 
-// --- Hardware-Isolated Screen Vector Tracking ---
+// Hardware-Isolated Screen Vector Tracking
 let joystickPointerId = null;
 let lookPointerId = null;
 let stickCenter = { x: 0, y: 0 };
@@ -317,7 +353,7 @@ const joystickZone = document.getElementById('joystick-zone');
 
 window.addEventListener('pointerdown', e => {
     if (!GAME_STATE.isRunning) return;
-    if (e.target.tagName === 'BUTTON') return; // Do not interrupt main setup buttons
+    if (e.target.tagName === 'BUTTON') return; 
 
     const rect = joystickZone.getBoundingClientRect();
     const jCenterX = rect.left + rect.width / 2;
@@ -327,13 +363,11 @@ window.addEventListener('pointerdown', e => {
     const dy = e.clientY - jCenterY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // If the touch falls near the joystick zone boundary, bind it to movement
     if (distance <= rect.width / 2 + 40 && joystickPointerId === null) {
         joystickPointerId = e.pointerId;
         stickCenter = { x: jCenterX, y: jCenterY };
         handleJoystickCalculation(e);
     } 
-    // Otherwise, treat it as a look drag action anywhere else on the screen
     else if (lookPointerId === null) {
         lookPointerId = e.pointerId;
         lastLookX = e.clientX;
@@ -362,6 +396,7 @@ const clearPointerTracking = e => {
         joystickPointerId = null;
         knob.style.transform = `translate(-50%, -50%)`;
         moveVector.set(0, 0, 0);
+        joystickRawIntensity = 0;
     } else if (e.pointerId === lookPointerId) {
         lookPointerId = null;
     }
@@ -380,8 +415,8 @@ function handleJoystickCalculation(e) {
 
     knob.style.transform = `translate(calc(-50% + ${Math.cos(angle) * clampDist}px), calc(-50% + ${Math.sin(angle) * clampDist}px))`;
 
-    const intensity = clampDist / maxDist;
-    moveVector.set(Math.cos(angle) * intensity, 0, Math.sin(angle) * intensity);
+    joystickRawIntensity = clampDist / maxDist;
+    moveVector.set(Math.cos(angle) * joystickRawIntensity, 0, Math.sin(angle) * joystickRawIntensity);
 }
 
 /**
@@ -476,6 +511,7 @@ function checkCollision(pos) {
 function update(delta) {
     GAME_STATE.time += delta;
 
+    // Timer Update
     const mins = Math.floor(GAME_STATE.time / 60).toString().padStart(2, '0');
     const secs = Math.floor(GAME_STATE.time % 60).toString().padStart(2, '0');
     const ms = Math.floor((GAME_STATE.time % 1) * 100).toString().padStart(2, '0');
@@ -483,7 +519,28 @@ function update(delta) {
 
     camera.quaternion.slerp(new THREE.Quaternion().setFromEuler(lookEuler), Math.exp(-delta * 15));
 
-    let speed = 4.0 * delta;
+    // Calculate movement request
+    let keyboardMoving = (keys.w || keys.s || keys.a || keys.d);
+    let joystickMoving = (moveVector.lengthSq() > 0.01);
+    let isMoving = keyboardMoving || joystickMoving;
+
+    // Stamina & Sprinting System Logic
+    let wantsToSprint = keys.shift || (joystickMoving && joystickRawIntensity > 0.75);
+    let isSprinting = isMoving && wantsToSprint && GAME_STATE.stamina > 5;
+
+    if (isSprinting) {
+        GAME_STATE.stamina -= delta * 22.0; // Drain stamina over roughly 4.5 seconds
+        if (GAME_STATE.stamina < 0) GAME_STATE.stamina = 0;
+    } else {
+        let recoveryRate = isMoving ? 7.0 : 18.0; // Recovers faster if standing completely stationary
+        GAME_STATE.stamina += delta * recoveryRate;
+        if (GAME_STATE.stamina > 100) GAME_STATE.stamina = 100;
+    }
+    document.getElementById('stamina-fill').style.width = `${GAME_STATE.stamina}%`;
+
+    // Movement Speeds
+    let baseSpeedSetting = isSprinting ? 5.2 : 2.8; 
+    let speed = baseSpeedSetting * delta;
     let velocity = new THREE.Vector3();
     
     if(keys.w) velocity.z -= 1;
@@ -493,12 +550,13 @@ function update(delta) {
 
     if(velocity.lengthSq() > 0) {
         velocity.normalize().multiplyScalar(speed);
-    } else if (moveVector.lengthSq() > 0) {
+    } else if (joystickMoving) {
         velocity.copy(moveVector).multiplyScalar(speed);
     }
 
     velocity.applyEuler(new THREE.Euler(0, lookEuler.y, 0));
 
+    // Collisions
     let newPos = camContainer.position.clone().add(velocity);
     if(!checkCollision(new THREE.Vector3(newPos.x, camContainer.position.y, camContainer.position.z))) {
         camContainer.position.x = newPos.x;
@@ -507,18 +565,23 @@ function update(delta) {
         camContainer.position.z = newPos.z;
     }
 
+    // Camera Bobbing
     if(velocity.lengthSq() > 0.0001) {
-        camera.position.y = Math.sin(GAME_STATE.time * 12) * 0.08;
+        let bobFreq = isSprinting ? 16 : 10;
+        let bobAmp = isSprinting ? 0.12 : 0.06;
+        camera.position.y = Math.sin(GAME_STATE.time * bobFreq) * bobAmp;
     } else {
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0, 0.1);
     }
 
+    // Environment Flickering
     scene.traverse(child => {
         if(child.isPointLight && child.userData.flicker) {
             child.intensity = Math.random() > 0.8 ? 0 : 0.7;
         }
     });
 
+    // Flashlight Battery consumption
     if(GAME_STATE.isFlashlightOn) {
         GAME_STATE.power -= delta * 0.3; 
         flashLight.intensity = (GAME_STATE.power / 100) * 3.5 + (Math.random() * 0.15);
@@ -530,6 +593,7 @@ function update(delta) {
     }
     document.getElementById('battery-ui').innerText = `PWR: ${Math.floor(GAME_STATE.power)}%`;
 
+    // Smiler AI Proximity Radar
     const distToSmiler = camContainer.position.distanceTo(smiler.position);
     drawSniffer(distToSmiler);
 
@@ -546,25 +610,42 @@ function update(delta) {
         smilerState.state = 'STALK';
     }
 
+    // Process Smiler Speed Movement (Nerfed Speeds Applied Here)
     if (smilerState.state === 'STALK' || smilerState.state === 'CHARGE') {
-        const moveSpeed = smilerState.state === 'CHARGE' ? 6.0 : 1.5;
+        const moveSpeed = smilerState.state === 'CHARGE' ? 2.8 : 0.8; 
         smiler.position.add(dirToSmiler.multiplyScalar(-moveSpeed * delta));
         smiler.lookAt(camContainer.position); 
     }
 
+    // Sanity Depletion
     if(!GAME_STATE.isFlashlightOn) GAME_STATE.sanity -= 1.5 * delta;
     if(distToSmiler < 15) GAME_STATE.sanity -= 5.0 * delta;
     GAME_STATE.sanity = Math.max(0, GAME_STATE.sanity);
-    document.getElementById('sanity-ui').innerText = `SAN: ${Math.floor(GAME_STATE.sanity)}%`;
+    document.getElementById('sanity-ui').innerText = `SANITY: ${Math.floor(GAME_STATE.sanity)}%`;
 
+    // Health Damage Calculation (Replaced instant kill loop)
+    if (distToSmiler < 2.0) {
+        GAME_STATE.health -= delta * 35.0; // It takes about ~3 seconds of close physical contact to die
+        if (GAME_STATE.health < 0) GAME_STATE.health = 0;
+        
+        // Add a visual alert glitch to the health bar border while taking damage
+        document.getElementById('health-fill').style.backgroundColor = Math.sin(GAME_STATE.time * 25) > 0 ? '#ffffff' : '#ff3333';
+    } else {
+        document.getElementById('health-fill').style.backgroundColor = '#ff3333';
+    }
+    document.getElementById('health-fill').style.width = `${GAME_STATE.health}%`;
+
+    // Global Post Process Camcorder Jitter Calculation
     let baseDistortion = 0.003;
     if (GAME_STATE.sanity < 50) baseDistortion += (50 - GAME_STATE.sanity) * 0.0005;
+    if (GAME_STATE.health < 50) baseDistortion += (50 - GAME_STATE.health) * 0.001; // Glitch rendering worsens as health degrades
     vhsMaterial.uniforms.distortionAmount.value = baseDistortion;
     vhsMaterial.uniforms.time.value = GAME_STATE.time;
 
     flashLight.target.updateMatrixWorld(); 
 
-    if (distToSmiler < 1.6 && GAME_STATE.isRunning) {
+    // Kill execution condition
+    if (GAME_STATE.health <= 0 && GAME_STATE.isRunning) {
         camera.lookAt(smiler.position); 
         triggerJumpscare();
     }
@@ -597,7 +678,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     initAudio();
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     
-    // Only lock pointer API on pure desktop monitors without touch inputs
     if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
         document.body.requestPointerLock();
     }
