@@ -301,7 +301,7 @@ fCtx.fillStyle = '#ffffff'; fCtx.beginPath(); fCtx.arc(40, 50, 6, 0, Math.PI * 2
 fCtx.strokeStyle = '#ffffff'; fCtx.lineWidth = 3; fCtx.beginPath(); fCtx.arc(64, 60, 35, 0.1 * Math.PI, 0.9 * Math.PI); fCtx.stroke();
 
 const smilerMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(faceCanvas), transparent: true, blending: THREE.AdditiveBlending }); 
-const smiler = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), smilerMat);
+const smiler = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), smilerMat);
 smiler.position.set(12, 1.3, -12);
 scene.add(smiler);
 
@@ -375,7 +375,33 @@ const flashLight = new THREE.SpotLight(0xfffae6, 3.5, 30, Math.PI/4.5, 0.6, 1.2)
 camera.add(flashLight, flashLight.target);
 flashLight.target.position.set(0, 0, -1);
 
-function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+function initAudio() {
+ audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+ const humOsc = audioCtx.createOscillator();
+ const humGain = audioCtx.createGain();
+ humOsc.type = 'sawtooth';
+ humOsc.frequency.value = 58;
+ humGain.gain.value = 0.015;
+ humOsc.connect(humGain);
+ humGain.connect(audioCtx.destination);
+ humOsc.start();
+
+ setInterval(()=>{
+   if(!GAME_STATE.isRunning) return;
+   const osc = audioCtx.createOscillator();
+   const gain = audioCtx.createGain();
+   osc.type='triangle';
+   osc.frequency.value = 80 + Math.random()*120;
+   gain.gain.value = 0.01;
+   osc.connect(gain);
+   gain.connect(audioCtx.destination);
+   osc.start();
+   osc.stop(audioCtx.currentTime + 0.15);
+ },7000 + Math.random()*5000);
+}
+
 
 /**
  * GAME OVER TERMINATION LOGIC
@@ -474,7 +500,9 @@ function update(delta) {
 
     // Smiler Logic & Rubberband Correction
     const distToSmiler = camContainer.position.distanceTo(smiler.position);
-    if (distToSmiler > 32.0) {
+    
+if ((distToSmiler > 20.0 && Math.random() > 0.995) || distToSmiler > 32.0) {
+
         let ang = Math.random() * Math.PI * 2;
         smiler.position.set(camContainer.position.x + Math.cos(ang)*14, 1.3, camContainer.position.z + Math.sin(ang)*14);
     }
@@ -492,7 +520,12 @@ function update(delta) {
         smiler.lookAt(camContainer.position);
     }
 
-    if (distToSmiler < 1.8) {
+    
+if(distToSmiler < 6){
+ smiler.scale.setScalar(1 + Math.sin(GAME_STATE.time*25)*0.08);
+ vhsMaterial.uniforms.distortionAmount.value = 0.01;
+}
+if (distToSmiler < 1.8) {
         GAME_STATE.health = Math.max(0, GAME_STATE.health - delta * 40.0);
     }
     document.getElementById('health-fill').style.width = `${GAME_STATE.health}%`;
