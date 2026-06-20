@@ -83,8 +83,8 @@
     <div id="start-screen">
         <h1>THE BACKROOMS</h1>
         <p>Desktop: WASD + Mouse to Look (Hold Shift to Sprint)</p>
-        <p>Mobile: Left Screen Joystick + Right Screen Drag (Push Joystick Out to Sprint)</p>
-        <p>WARNING: Flashing lights and loud noises.</p>
+        <p>Mobile: Left Joystick + Right Screen Drag (Push Joystick Out to Sprint)</p>
+        <p>Objective: Locate the glowing green EXIT door hidden in the distant corridors.</p>
         <button id="start-btn">ENTER LEVEL 0</button>
     </div>
 
@@ -128,17 +128,17 @@ const GAME_STATE = {
 let audioCtx;
 
 const canvas = document.getElementById('gameCanvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x12110d, 0.05); 
+scene.fog = new THREE.FogExp2(0x1a1813, 0.04); 
 renderer.setClearColor(scene.fog.color);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
 const camContainer = new THREE.Object3D();
-camContainer.position.set(0, 1.7, 0);
+camContainer.position.set(0, 1.6, 0); // Grounded realistic eye height
 scene.add(camContainer);
 camContainer.add(camera);
 
@@ -147,13 +147,13 @@ const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quadScene = new THREE.Scene();
 
 /**
- * CLEAN FOUND FOOTAGE SHADER (Less 'Glitchy')
+ * REFINED VHS SHADER
  */
 const vhsMaterial = new THREE.ShaderMaterial({
     uniforms: {
         tDiffuse: { value: null },
         time: { value: 0.0 },
-        distortionAmount: { value: 0.001 } // Kept extremely low
+        distortionAmount: { value: 0.001 }
     },
     vertexShader: `
         varying vec2 vUv;
@@ -175,28 +175,21 @@ const vhsMaterial = new THREE.ShaderMaterial({
         void main() {
             vec2 uv = vUv;
             
-            // REMOVED: Tape Tracking Jitter (Horizontal glitching)
-
-            // MODIFIED: Reduced Chromatic Aberration offset
-            float rAmount = distortionAmount * 1.1; 
-            float bAmount = -distortionAmount * 1.1;
+            float rAmount = distortionAmount * 1.2; 
+            float bAmount = -distortionAmount * 1.2;
 
             float r = texture2D(tDiffuse, vec2(uv.x + rAmount, uv.y)).r;
             float g = texture2D(tDiffuse, uv).g;
             float b = texture2D(tDiffuse, vec2(uv.x + bAmount, uv.y)).b;
 
-            // MODIFIED: Fainter, strictly visual scanlines
-            float scanline = sin(uv.y * 800.0) * 0.02;
-            
-            // MODIFIED: Significantly reduced Digital Noise grain
-            float noise = (rand(uv * time) - 0.5) * 0.03;
+            float scanline = sin(uv.y * 900.0) * 0.015;
+            float noise = (rand(uv * time) - 0.5) * 0.025;
 
-            // Color grading and composition
             vec3 color = vec3(r, g, b) - scanline + noise;
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
             
-            color = mix(color, vec3(luma), 0.15); // Slight desaturation
-            color = pow(color, vec3(1.1)); // Mild gamma boost
+            color = mix(color, vec3(luma), 0.12); 
+            color = pow(color, vec3(1.05)); 
 
             gl_FragColor = vec4(color, 1.0);
         }
@@ -206,81 +199,168 @@ const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), vhsMaterial);
 quadScene.add(quad);
 
 /**
- * ENVIRONMENT GENERATION
+ * DYNAMIC GRAPHICS GENERATION (PROCEDURAL TEXTURES)
  */
-const ambientLight = new THREE.AmbientLight(0xebe3c3, 0.22);
-scene.add(ambientLight);
+function createWallpaperTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#c2b378'; // Iconic damp yellow
+    ctx.fillRect(0, 0, 256, 256);
+    
+    // Subtle vertical panel lines
+    ctx.strokeStyle = '#a69860';
+    ctx.lineWidth = 2;
+    for(let i = 0; i < 256; i += 32) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+    }
+    // Ambient noise spots
+    for(let i = 0; i < 200; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(140,128,80,0.15)' : 'rgba(214,202,146,0.2)';
+        ctx.fillRect(Math.random()*256, Math.random()*256, Math.random()*4+1, Math.random()*4+1);
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
+    return texture;
+}
 
-const wallMat = new THREE.MeshLambertMaterial({ color: 0xd6c585 }); 
-const floorMat = new THREE.MeshLambertMaterial({ color: 0x7a6f50 }); 
-const ceilMat = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+function createCarpetTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#5e5335'; // Dirty mono-carpet brown
+    ctx.fillRect(0, 0, 128, 128);
+    
+    // High density noise grains
+    for(let i = 0; i < 3000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? '#4a4128' : '#706443';
+        ctx.fillRect(Math.random()*128, Math.random()*128, 1, 1);
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(16, 16);
+    return texture;
+}
+
+const wallTex = createWallpaperTexture();
+const carpetTex = createCarpetTexture();
+
+// Materials updated to standard shaded types for depth and interaction
+const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.8, metalness: 0.1 }); 
+const floorMat = new THREE.MeshStandardMaterial({ map: carpetTex, roughness: 0.95, metalness: 0.0 }); 
+const ceilMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 });
 
 const boxGeo = new THREE.BoxGeometry(4, 4, 4);
-const planeGeo = new THREE.PlaneGeometry(4, 4);
-planeGeo.rotateX(-Math.PI / 2);
+const lightFixtGeo = new THREE.BoxGeometry(1.5, 0.05, 0.3);
+const lightTubeMat = new THREE.MeshBasicMaterial({ color: 0xfffee0 });
 
-const mazeSize = 20;
+/**
+ * EXPANDED LEVEL DESIGN & GENERATION
+ */
+const mazeSize = 40; // Quadrupled search grid area
 const cellSize = 4;
 const walls = [];
 
+// Performance Optimization: Unified mega-planes replace separate meshes
+const floorMega = new THREE.Mesh(new THREE.PlaneGeometry(mazeSize * cellSize, mazeSize * cellSize), floorMat);
+floorMega.rotation.x = -Math.PI / 2;
+floorMega.position.set(-cellSize/2, 0, -cellSize/2);
+scene.add(floorMega);
+
+const ceilMega = new THREE.Mesh(new THREE.PlaneGeometry(mazeSize * cellSize, mazeSize * cellSize), ceilMat);
+ceilMega.rotation.x = Math.PI / 2;
+ceilMega.position.set(-cellSize/2, 4, -cellSize/2);
+scene.add(ceilMega);
+
+// Pick an escape node coordinates near a far corner
+const exitCell = { x: Math.floor(mazeSize/2) - 4, z: Math.floor(mazeSize/2) - 4 };
+
 for(let x = -mazeSize/2; x < mazeSize/2; x++) {
     for(let z = -mazeSize/2; z < mazeSize/2; z++) {
-        const floor = new THREE.Mesh(planeGeo, floorMat);
-        floor.position.set(x * cellSize, 0, z * cellSize);
-        scene.add(floor);
-
-        const ceil = new THREE.Mesh(planeGeo, ceilMat);
-        ceil.position.set(x * cellSize, 4, z * cellSize);
-        ceil.rotation.x = Math.PI;
-        scene.add(ceil);
-
-        if (Math.random() < 0.25 && (x !== 0 || z !== 0)) {
+        
+        // Skip spawning structures directly on player or exit sectors
+        let isNearPlayer = (Math.abs(x) <= 2 && Math.abs(z) <= 2);
+        let isNearExit = (x === exitCell.x && z === exitCell.z);
+        
+        if (!isNearPlayer && !isNearExit && Math.random() < 0.26) {
             const wall = new THREE.Mesh(boxGeo, wallMat);
             wall.position.set(x * cellSize, 2, z * cellSize);
             scene.add(wall);
             walls.push(new THREE.Box3().setFromObject(wall));
-        }
+        } else {
+            // Spawn physical lights in open paths
+            if (Math.random() < 0.12 && !isNearExit) {
+                const fixture = new THREE.Mesh(lightFixtGeo, lightTubeMat);
+                fixture.position.set(x * cellSize, 3.95, z * cellSize);
+                scene.add(fixture);
 
-        if (Math.random() < 0.1) {
-            const light = new THREE.PointLight(0xfff5e6, 0.7, 12);
-            light.position.set(x * cellSize, 3.8, z * cellSize);
-            light.userData.flicker = Math.random() < 0.15;
-            scene.add(light);
+                const light = new THREE.PointLight(0xfff7d4, 0.75, 14);
+                light.position.set(x * cellSize, 3.8, z * cellSize);
+                light.userData.flicker = Math.random() < 0.1;
+                scene.add(light);
+            }
         }
     }
 }
 
-const flashLight = new THREE.SpotLight(0xffffff, 3.5, 35, Math.PI/4, 0.6, 1);
-flashLight.position.set(0, 0, 0);
-flashLight.target.position.set(0, 0, -1);
-camera.add(flashLight);
-camera.add(flashLight.target);
+/**
+ * EXIT ROOM DOORWAY ASSEMBLY
+ */
+const exitGroup = new THREE.Group();
+exitGroup.position.set(exitCell.x * cellSize, 0, exitCell.z * cellSize);
+scene.add(exitGroup);
+
+// Frame
+const frameMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3, 0.2), frameMat);
+leftFrame.position.set(-1.2, 1.5, 0);
+const rightFrame = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3, 0.2), frameMat);
+rightFrame.position.set(1.2, 1.5, 0);
+exitGroup.add(leftFrame, rightFrame);
+
+// Door slab
+const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3, 0.1), new THREE.MeshStandardMaterial({ color: 0x3d1212, roughness: 0.7 }));
+doorMesh.position.set(0, 1.5, -0.05);
+exitGroup.add(doorMesh);
+
+// Glowing illuminated Exit Sign
+const signCanvas = document.createElement('canvas');
+signCanvas.width = 128; signCanvas.height = 64;
+const sctx = signCanvas.getContext('2d');
+sctx.fillStyle = '#053d10'; sctx.fillRect(0,0,128,64);
+sctx.fillStyle = '#26ff58'; sctx.font = 'bold 24px Arial';
+sctx.textAlign = 'center'; sctx.fillText('EXIT', 64, 42);
+
+const signTex = new THREE.CanvasTexture(signCanvas);
+const signMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.4, 0.2), new THREE.MeshBasicMaterial({ map: signTex }));
+signMesh.position.set(0, 3.3, 0.1);
+exitGroup.add(signMesh);
+
+const escapeThresholdBox = new THREE.Box3(
+    new THREE.Vector3((exitCell.x * cellSize) - 1.5, 0, (exitCell.z * cellSize) - 1.5),
+    new THREE.Vector3((exitCell.x * cellSize) + 1.5, 4, (exitCell.z * cellSize) + 1.5)
+);
 
 /**
- * THE SMILER (ENTITY AI)
+ * THE SMILER (ENTITY SYSTEM)
  */
 const faceCanvas = document.createElement('canvas');
-faceCanvas.width = 256;
-faceCanvas.height = 256;
+faceCanvas.width = 256; faceCanvas.height = 256;
 const fCtx = faceCanvas.getContext('2d');
-
-fCtx.fillStyle = '#000000';
-fCtx.fillRect(0, 0, 256, 256);
-fCtx.fillStyle = '#ffffff';
-fCtx.shadowBlur = 15;
-fCtx.shadowColor = '#ffffff';
-
+fCtx.fillStyle = '#000000'; fCtx.fillRect(0, 0, 256, 256);
+fCtx.fillStyle = '#ffffff'; fCtx.shadowBlur = 15; fCtx.shadowColor = '#ffffff';
 fCtx.beginPath(); fCtx.arc(80, 100, 12, 0, Math.PI * 2); fCtx.fill();
 fCtx.beginPath(); fCtx.arc(176, 100, 12, 0, Math.PI * 2); fCtx.fill();
-
-fCtx.strokeStyle = '#ffffff';
-fCtx.lineWidth = 6;
-fCtx.beginPath();
-fCtx.arc(128, 120, 70, 0.1 * Math.PI, 0.9 * Math.PI);
-fCtx.stroke();
-
-fCtx.lineWidth = 3;
-fCtx.shadowBlur = 5;
+fCtx.strokeStyle = '#ffffff'; fCtx.lineWidth = 6; fCtx.beginPath();
+fCtx.arc(128, 120, 70, 0.1 * Math.PI, 0.9 * Math.PI); fCtx.stroke();
+fCtx.lineWidth = 3; fCtx.shadowBlur = 5;
 for (let i = 70; i <= 186; i += 12) {
     let topY = 150 + Math.sin(i * 0.05) * 10;
     fCtx.beginPath(); fCtx.moveTo(i, topY); fCtx.lineTo(i + 5, topY + 15); fCtx.lineTo(i + 10, topY); fCtx.fill();
@@ -288,188 +368,130 @@ for (let i = 70; i <= 186; i += 12) {
 }
 
 const smilerTexture = new THREE.CanvasTexture(faceCanvas);
-const smilerGeo = new THREE.PlaneGeometry(2.5, 2.5); 
-const smilerMat = new THREE.MeshBasicMaterial({ 
-    map: smilerTexture, 
-    transparent: true,
-    blending: THREE.AdditiveBlending 
-}); 
-
-const smiler = new THREE.Mesh(smilerGeo, smilerMat);
+const smilerMat = new THREE.MeshBasicMaterial({ map: smilerTexture, transparent: true, blending: THREE.AdditiveBlending }); 
+const smiler = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), smilerMat);
 smiler.position.set(12, 1.3, -12);
 scene.add(smiler);
 
 const smilerState = { state: 'STALK' };
 
 /**
- * UNIFIED GLOBAL INTERCEPTION CONTROL ENGINE
+ * INPUT MATRIX
  */
 let moveVector = new THREE.Vector3();
 let joystickRawIntensity = 0; 
 let lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let keys = { w: false, a: false, s: false, d: false, shift: false };
 
-// Keyboard Tracking
 document.addEventListener('keydown', e => {
-    let k = e.key.toLowerCase();
-    if(k in keys) keys[k] = true;
+    let k = e.key.toLowerCase(); if(k in keys) keys[k] = true;
     if(e.key === 'Shift') keys.shift = true;
 });
 document.addEventListener('keyup', e => {
-    let k = e.key.toLowerCase();
-    if(k in keys) keys[k] = false;
+    let k = e.key.toLowerCase(); if(k in keys) keys[k] = false;
     if(e.key === 'Shift') keys.shift = false;
 });
 
-// Desktop Mouse Look Pipeline
 document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
 document.addEventListener('mousemove', e => {
     if(document.pointerLockElement === document.body) {
-        lookEuler.y -= e.movementX * 0.002;
-        lookEuler.x -= e.movementY * 0.002;
+        lookEuler.y -= e.movementX * 0.002; lookEuler.x -= e.movementY * 0.002;
         lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
     }
 });
 
-// Hardware-Isolated Screen Vector Tracking
-let joystickPointerId = null;
-let lookPointerId = null;
-let stickCenter = { x: 0, y: 0 };
-let lastLookX = 0, lastLookY = 0;
-
-const knob = document.getElementById('joystick-knob');
-const joystickZone = document.getElementById('joystick-zone');
+let joystickPointerId = null, lookPointerId = null, stickCenter = { x: 0, y: 0 }, lastLookX = 0, lastLookY = 0;
+const knob = document.getElementById('joystick-knob'), joystickZone = document.getElementById('joystick-zone');
 
 window.addEventListener('pointerdown', e => {
     if (!GAME_STATE.isRunning) return;
     if (e.target.tagName === 'BUTTON') return; 
-
     const rect = joystickZone.getBoundingClientRect();
-    const jCenterX = rect.left + rect.width / 2;
-    const jCenterY = rect.top + rect.height / 2;
+    const jCenterX = rect.left + rect.width / 2, jCenterY = rect.top + rect.height / 2;
+    const dist = Math.sqrt(Math.pow(e.clientX - jCenterX, 2) + Math.pow(e.clientY - jCenterY, 2));
 
-    const dx = e.clientX - jCenterX;
-    const dy = e.clientY - jCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance <= rect.width / 2 + 40 && joystickPointerId === null) {
-        joystickPointerId = e.pointerId;
-        stickCenter = { x: jCenterX, y: jCenterY };
-        handleJoystickCalculation(e);
-    } 
-    else if (lookPointerId === null) {
-        lookPointerId = e.pointerId;
-        lastLookX = e.clientX;
-        lastLookY = e.clientY;
+    if (dist <= rect.width / 2 + 40 && joystickPointerId === null) {
+        joystickPointerId = e.pointerId; stickCenter = { x: jCenterX, y: jCenterY }; handleJoystickCalculation(e);
+    } else if (lookPointerId === null) {
+        lookPointerId = e.pointerId; lastLookX = e.clientX; lastLookY = e.clientY;
     }
 });
-
 window.addEventListener('pointermove', e => {
-    if (e.pointerId === joystickPointerId) {
-        handleJoystickCalculation(e);
-    } else if (e.pointerId === lookPointerId) {
-        const dx = e.clientX - lastLookX;
-        const dy = e.clientY - lastLookY;
-
-        lookEuler.y -= dx * 0.005;
-        lookEuler.x -= dy * 0.005;
+    if (e.pointerId === joystickPointerId) handleJoystickCalculation(e);
+    else if (e.pointerId === lookPointerId) {
+        lookEuler.y -= (e.clientX - lastLookX) * 0.005; lookEuler.x -= (e.clientY - lastLookY) * 0.005;
         lookEuler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, lookEuler.x));
-
-        lastLookX = e.clientX;
-        lastLookY = e.clientY;
+        lastLookX = e.clientX; lastLookY = e.clientY;
     }
 });
-
 const clearPointerTracking = e => {
     if (e.pointerId === joystickPointerId) {
-        joystickPointerId = null;
-        knob.style.transform = `translate(-50%, -50%)`;
-        moveVector.set(0, 0, 0);
-        joystickRawIntensity = 0;
-    } else if (e.pointerId === lookPointerId) {
-        lookPointerId = null;
-    }
+        joystickPointerId = null; knob.style.transform = `translate(-50%, -50%)`; moveVector.set(0, 0, 0); joystickRawIntensity = 0;
+    } else if (e.pointerId === lookPointerId) lookPointerId = null;
 };
-
 window.addEventListener('pointerup', clearPointerTracking);
 window.addEventListener('pointercancel', clearPointerTracking);
 
 function handleJoystickCalculation(e) {
-    let dx = e.clientX - stickCenter.x;
-    let dy = e.clientY - stickCenter.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDist = 40;
-    const clampDist = Math.min(dist, maxDist);
-    const angle = Math.atan2(dy, dx);
-
+    let dx = e.clientX - stickCenter.x, dy = e.clientY - stickCenter.y;
+    const dist = Math.sqrt(dx * dx + dy * dy), maxDist = 40, clampDist = Math.min(dist, maxDist), angle = Math.atan2(dy, dx);
     knob.style.transform = `translate(calc(-50% + ${Math.cos(angle) * clampDist}px), calc(-50% + ${Math.sin(angle) * clampDist}px))`;
-
     joystickRawIntensity = clampDist / maxDist;
     moveVector.set(Math.cos(angle) * joystickRawIntensity, 0, Math.sin(angle) * joystickRawIntensity);
 }
 
-/**
- * AUDIO SYSTEM
- */
-function initAudio() {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
+const flashLight = new THREE.SpotLight(0xfffdf0, 4.5, 38, Math.PI/4.2, 0.7, 1.2);
+flashLight.position.set(0, 0, 0); flashLight.target.position.set(0, 0, -1);
+camera.add(flashLight, flashLight.target);
 
+function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+/**
+ * END GAME TERMINATIONS (WIN / LOSS)
+ */
 function triggerJumpscare() {
-    GAME_STATE.isRunning = false;
-    vhsMaterial.uniforms.distortionAmount.value = 0.8; // Shatter color tracking on death
-    
+    GAME_STATE.isRunning = false; vhsMaterial.uniforms.distortionAmount.value = 0.8; 
     document.getElementById('ui-layer').innerHTML = `
         <div style="position:absolute; top:0; left:0; width:100%; height:100%; background:red; opacity:0.15; pointer-events:none;"></div>
-        <div style="font-size:40px; color:#ff3333; text-align:center; margin-top:25vh; font-weight:bold; letter-spacing:4px;">
-            SIGNAL LOST<br><br>
-            <span style="font-size:20px; color:#aaa;">TAPE CORRUPTED // REWINDING...</span>
-        </div>
-    `;
-    
-    if(audioCtx) {
-        let osc1 = audioCtx.createOscillator();
-        let gain1 = audioCtx.createGain();
-        osc1.type = 'sawtooth';
-        osc1.frequency.setValueAtTime(120, audioCtx.currentTime);
-        osc1.frequency.exponentialRampToValueAtTime(2800, audioCtx.currentTime + 0.4);
-        
-        let osc2 = audioCtx.createOscillator();
-        let gain2 = audioCtx.createGain();
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(60, audioCtx.currentTime);
-        osc2.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 1.2);
-
-        gain1.gain.setValueAtTime(0.8, audioCtx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-        gain2.gain.setValueAtTime(1.0, audioCtx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
-        
-        osc1.connect(gain1); gain1.connect(audioCtx.destination);
-        osc2.connect(gain2); gain2.connect(audioCtx.destination);
-        
-        osc1.start(); osc2.start();
-        osc1.stop(audioCtx.currentTime + 1.5);
-        osc2.stop(audioCtx.currentTime + 1.5);
-    }
-    
+        <div style="font-size:40px; color:#ff3333; text-align:center; margin-top:35vh; font-weight:bold; letter-spacing:4px;">
+            SIGNAL LOST<br><br><span style="font-size:20px; color:#aaa;">TAPE CORRUPTED // REWINDING...</span>
+        </div>`;
+    playEndSound(120, 2800, 1.5);
     setTimeout(() => location.reload(), 2500);
 }
 
+function triggerEscape() {
+    GAME_STATE.isRunning = false; vhsMaterial.uniforms.distortionAmount.value = 0.0;
+    document.getElementById('ui-layer').innerHTML = `
+        <div style="position:absolute; top:0; left:0; width:100%; height:100%; background:#fff; opacity:0.05; pointer-events:none;"></div>
+        <div style="font-size:40px; color:#26ff58; text-align:center; margin-top:35vh; font-weight:bold; letter-spacing:4px;">
+            FEED TERMINATED<br><br><span style="font-size:20px; color:#eee;">SUCCESSFUL ESCAPE // TAPE RECORDED</span>
+        </div>`;
+    playEndSound(400, 80, 2.0);
+    setTimeout(() => location.reload(), 5000);
+}
+
+function playEndSound(fStart, fEnd, duration) {
+    if(!audioCtx) return;
+    let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(fStart, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(fEnd, audioCtx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.6, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+
 /**
- * MAIN GAME LOOP
+ * CORE RENDERING RUNTIME ENGINE
  */
 const clock = new THREE.Clock();
-const playerRadius = 0.5;
+const playerRadius = 0.45;
 
 function checkCollision(pos) {
     const pBox = new THREE.Box3(
         new THREE.Vector3(pos.x - playerRadius, 0, pos.z - playerRadius),
         new THREE.Vector3(pos.x + playerRadius, 3, pos.z + playerRadius)
     );
-    for(let wall of walls) {
-        if(pBox.intersectsBox(wall)) return true;
-    }
+    for(let wall of walls) { if(pBox.intersectsBox(wall)) return true; }
     return false;
 }
 
@@ -491,81 +513,76 @@ function update(delta) {
     let isSprinting = isMoving && wantsToSprint && GAME_STATE.stamina > 5;
 
     if (isSprinting) {
-        GAME_STATE.stamina -= delta * 22.0; 
-        if (GAME_STATE.stamina < 0) GAME_STATE.stamina = 0;
+        GAME_STATE.stamina = Math.max(0, GAME_STATE.stamina - delta * 24.0);
     } else {
-        let recoveryRate = isMoving ? 7.0 : 18.0; 
-        GAME_STATE.stamina += delta * recoveryRate;
-        if (GAME_STATE.stamina > 100) GAME_STATE.stamina = 100;
+        GAME_STATE.stamina = Math.min(100, GAME_STATE.stamina + delta * (isMoving ? 8.0 : 20.0));
     }
     document.getElementById('stamina-fill').style.width = `${GAME_STATE.stamina}%`;
 
-    let baseSpeedSetting = isSprinting ? 5.2 : 2.8; 
-    let speed = baseSpeedSetting * delta;
+    let speed = (isSprinting ? 5.0 : 2.6) * delta;
     let velocity = new THREE.Vector3();
     
-    if(keys.w) velocity.z -= 1;
-    if(keys.s) velocity.z += 1;
-    if(keys.a) velocity.x -= 1;
-    if(keys.d) velocity.x += 1;
+    if(keys.w) velocity.z -= 1; if(keys.s) velocity.z += 1;
+    if(keys.a) velocity.x -= 1; if(keys.d) velocity.x += 1;
 
-    if(velocity.lengthSq() > 0) {
-        velocity.normalize().multiplyScalar(speed);
-    } else if (joystickMoving) {
-        velocity.copy(moveVector).multiplyScalar(speed);
-    }
+    if(velocity.lengthSq() > 0) velocity.normalize().multiplyScalar(speed);
+    else if (joystickMoving) velocity.copy(moveVector).multiplyScalar(speed);
 
     velocity.applyEuler(new THREE.Euler(0, lookEuler.y, 0));
 
     let newPos = camContainer.position.clone().add(velocity);
-    if(!checkCollision(new THREE.Vector3(newPos.x, camContainer.position.y, camContainer.position.z))) {
-        camContainer.position.x = newPos.x;
-    }
-    if(!checkCollision(new THREE.Vector3(camContainer.position.x, camContainer.position.y, newPos.z))) {
-        camContainer.position.z = newPos.z;
-    }
+    if(!checkCollision(new THREE.Vector3(newPos.x, camContainer.position.y, camContainer.position.z))) camContainer.position.x = newPos.x;
+    if(!checkCollision(new THREE.Vector3(camContainer.position.x, camContainer.position.y, newPos.z))) camContainer.position.z = newPos.z;
 
+    // Headbobbing
     if(velocity.lengthSq() > 0.0001) {
-        let bobFreq = isSprinting ? 16 : 10;
-        let bobAmp = isSprinting ? 0.12 : 0.06;
-        camera.position.y = Math.sin(GAME_STATE.time * bobFreq) * bobAmp;
+        camera.position.y = Math.sin(GAME_STATE.time * (isSprinting ? 15 : 9)) * (isSprinting ? 0.1 : 0.05);
     } else {
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0, 0.1);
     }
 
+    // Lights Flashing Loop
     scene.traverse(child => {
         if(child.isPointLight && child.userData.flicker) {
-            child.intensity = Math.random() > 0.8 ? 0 : 0.7;
+            child.intensity = Math.random() > 0.94 ? 0 : 0.75;
         }
     });
 
+    // Battery system
     if(GAME_STATE.isFlashlightOn) {
-        GAME_STATE.power -= delta * 0.3; 
-        flashLight.intensity = (GAME_STATE.power / 100) * 3.5 + (Math.random() * 0.15);
-        if(GAME_STATE.power <= 0) {
-            GAME_STATE.isFlashlightOn = false;
-            flashLight.intensity = 0;
-            GAME_STATE.power = 0;
-        }
+        GAME_STATE.power = Math.max(0, GAME_STATE.power - delta * 0.2); 
+        flashLight.intensity = (GAME_STATE.power / 100) * 4.5 + (Math.random() * 0.1);
+        if(GAME_STATE.power <= 0) { GAME_STATE.isFlashlightOn = false; flashLight.intensity = 0; }
     }
     document.getElementById('battery-ui').innerText = `PWR: ${Math.floor(GAME_STATE.power)}%`;
 
+    // Check Escape Victory Condition
+    const pVec2 = new THREE.Vector3(camContainer.position.x, 1.5, camContainer.position.z);
+    if (escapeThresholdBox.containsPoint(pVec2)) {
+        triggerEscape();
+        return;
+    }
+
+    // Smiler Processing Logic
     const distToSmiler = camContainer.position.distanceTo(smiler.position);
     
-    // REMOVED: Static Sniffer Wave drawing
+    // Rubber-banding protection: Teleport creature closer if it loses player across massive map
+    if (distToSmiler > 36.0) {
+        let spawnAngle = Math.random() * Math.PI * 2;
+        let teleX = camContainer.position.x + Math.cos(spawnAngle) * 16;
+        let teleZ = camContainer.position.z + Math.sin(spawnAngle) * 16;
+        if (!checkCollision(new THREE.Vector3(teleX, 1.5, teleZ))) {
+            smiler.position.set(teleX, 1.3, teleZ);
+        }
+    }
 
     const dirToSmiler = new THREE.Vector3().subVectors(smiler.position, camContainer.position).normalize();
-    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    const dot = camDir.dot(dirToSmiler);
-    const isLookingAtSmiler = dot > 0.8 && distToSmiler < 20;
+    const dot = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).dot(dirToSmiler);
+    const isLookingAtSmiler = dot > 0.78 && distToSmiler < 22;
 
-    if (isLookingAtSmiler && GAME_STATE.isFlashlightOn) {
-        smilerState.state = 'FREEZE';
-    } else if (distToSmiler < 10 || (!GAME_STATE.isFlashlightOn && distToSmiler < 15)) {
-        smilerState.state = 'CHARGE';
-    } else {
-        smilerState.state = 'STALK';
-    }
+    if (isLookingAtSmiler && GAME_STATE.isFlashlightOn) smilerState.state = 'FREEZE';
+    else if (distToSmiler < 11 || (!GAME_STATE.isFlashlightOn && distToSmiler < 14)) smilerState.state = 'CHARGE';
+    else smilerState.state = 'STALK';
 
     if (smilerState.state === 'STALK' || smilerState.state === 'CHARGE') {
         const moveSpeed = smilerState.state === 'CHARGE' ? 2.8 : 0.8; 
@@ -573,27 +590,24 @@ function update(delta) {
         smiler.lookAt(camContainer.position); 
     }
 
-    // REMOVED: Sanity depletion logic
-
-    if (distToSmiler < 2.0) {
-        GAME_STATE.health -= delta * 35.0; 
-        document.getElementById('health-fill').style.backgroundColor = Math.sin(GAME_STATE.time * 25) > 0 ? '#ffffff' : '#ff3333';
+    // Damage profile calculation
+    if (distToSmiler < 1.9) {
+        GAME_STATE.health = Math.max(0, GAME_STATE.health - delta * 36.0);
+        document.getElementById('health-fill').style.backgroundColor = Math.sin(GAME_STATE.time * 28) > 0 ? '#ffffff' : '#ff3333';
     } else {
         document.getElementById('health-fill').style.backgroundColor = '#ff3333';
     }
     document.getElementById('health-fill').style.width = `${GAME_STATE.health}%`;
 
-    // Static Shader settings (Jitter removed from shader, sanity removed from logic)
-    let baseDistortion = 0.001;
-    if (GAME_STATE.health < 50) baseDistortion += (50 - GAME_STATE.health) * 0.0005; // Slight color bleed worse at low health
-    vhsMaterial.uniforms.distortionAmount.value = baseDistortion;
+    let currentGlitch = 0.001;
+    if (GAME_STATE.health < 50) currentGlitch += (50 - GAME_STATE.health) * 0.0006;
+    vhsMaterial.uniforms.distortionAmount.value = currentGlitch;
     vhsMaterial.uniforms.time.value = GAME_STATE.time;
 
     flashLight.target.updateMatrixWorld(); 
 
     if (GAME_STATE.health <= 0 && GAME_STATE.isRunning) {
-        camera.lookAt(smiler.position); 
-        triggerJumpscare();
+        camera.lookAt(smiler.position); triggerJumpscare();
     }
 }
 
@@ -601,42 +615,27 @@ function animate() {
     requestAnimationFrame(animate);
     if (!GAME_STATE.isRunning) {
         if(vhsMaterial.uniforms.distortionAmount.value > 0.5) {
-            vhsMaterial.uniforms.time.value += 0.1;
-            renderer.render(quadScene, orthoCamera);
+            vhsMaterial.uniforms.time.value += 0.1; renderer.render(quadScene, orthoCamera);
         }
         return;
     }
-
     const delta = clock.getDelta();
     update(delta);
-
-    renderer.setRenderTarget(renderTarget);
-    renderer.render(scene, camera);
-    
+    renderer.setRenderTarget(renderTarget); renderer.render(scene, camera);
     vhsMaterial.uniforms.tDiffuse.value = renderTarget.texture;
-    
-    renderer.setRenderTarget(null);
-    renderer.render(quadScene, orthoCamera);
+    renderer.setRenderTarget(null); renderer.render(quadScene, orthoCamera);
 }
 
 document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('start-screen').style.display = 'none';
-    initAudio();
-    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    
-    if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
-        document.body.requestPointerLock();
-    }
-    
-    GAME_STATE.isRunning = true;
-    clock.start();
+    initAudio(); if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) document.body.requestPointerLock();
+    GAME_STATE.isRunning = true; clock.start();
 });
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderTarget.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight); renderTarget.setSize(window.innerWidth, window.innerHeight);
 });
 
 animate();
