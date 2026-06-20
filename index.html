@@ -10,6 +10,8 @@
             background-color: #000; overflow: hidden;
             font-family: 'Courier New', Courier, monospace;
             user-select: none; -webkit-user-select: none;
+            /* Forcibly stops mobile browsers from hijacking drags for scrolling/zooming */
+            touch-action: none; 
         }
         #gameCanvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
@@ -38,25 +40,20 @@
         }
         #sniffer-canvas { width: 100%; height: 100%; }
 
-        /* Mobile Controls Overlay */
-        #mobile-controls {
+        /* Mobile Controls Visual layer (inputs handled globally via window) */
+        #mobile-interface {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; display: none; pointer-events: none;
+            z-index: 20; pointer-events: none;
         }
         #joystick-zone {
             position: absolute; bottom: 40px; left: 40px;
             width: 120px; height: 120px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.4);
-            pointer-events: auto; touch-action: none;
         }
         #joystick-knob {
             position: absolute; top: 50%; left: 50%; width: 50px; height: 50px;
             border-radius: 50%; background: rgba(255, 255, 255, 0.6);
-            transform: translate(-50%, -50%); pointer-events: none;
-        }
-        #look-zone {
-            position: absolute; top: 0; right: 0; width: 60%; height: 100%;
-            pointer-events: auto; touch-action: none;
+            transform: translate(-50%, -50%);
         }
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -78,7 +75,7 @@
     <div id="start-screen">
         <h1>THE BACKROOMS</h1>
         <p>Desktop: WASD + Mouse to Look</p>
-        <p>Mobile: Left Joystick + Right Screen Drag to Look</p>
+        <p>Mobile: Left Screen Joystick + Right Screen Drag to Look</p>
         <p>WARNING: Flashing lights and loud noises.</p>
         <button id="start-btn">ENTER LEVEL 0</button>
     </div>
@@ -95,11 +92,10 @@
         </div>
     </div>
 
-    <div id="mobile-controls">
+    <div id="mobile-interface">
         <div id="joystick-zone">
             <div id="joystick-knob"></div>
         </div>
-        <div id="look-zone"></div>
     </div>
 
 <script>
@@ -286,18 +282,13 @@ scene.add(smiler);
 const smilerState = { state: 'STALK', speed: 1.8 };
 
 /**
- * UNIFIED POINTER & KEYBOARD INPUT SYSTEM
+ * UNIFIED GLOBAL INTERCEPTION CONTROL ENGINE
  */
 let moveVector = new THREE.Vector3();
 let lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let keys = { w: false, a: false, s: false, d: false };
 
-// Show mobile overlay only if hardware supports touch features
-if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-    document.getElementById('mobile-controls').style.display = 'block';
-}
-
-// Global Keyboard Tracking (Always active for hybrid setups)
+// Keyboard Tracking
 document.addEventListener('keydown', e => {
     if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
 });
@@ -315,92 +306,83 @@ document.addEventListener('mousemove', e => {
     }
 });
 
-// --- Hardware-Isolated Pointer API Tracking ---
-const zone = document.getElementById('joystick-zone');
-const knob = document.getElementById('joystick-knob');
+// --- Hardware-Isolated Screen Vector Tracking ---
 let joystickPointerId = null;
+let lookPointerId = null;
 let stickCenter = { x: 0, y: 0 };
+let lastLookX = 0, lastLookY = 0;
 
-zone.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    joystickPointerId = e.pointerId;
-    zone.setPointerCapture(e.pointerId); // Forces window frame boundary tracking updates
-    const rect = zone.getBoundingClientRect();
-    stickCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
-    handleJoystickMove(e);
-});
+const knob = document.getElementById('joystick-knob');
+const joystickZone = document.getElementById('joystick-zone');
 
-zone.addEventListener('pointermove', e => {
-    if(e.pointerId === joystickPointerId) {
-        e.preventDefault();
-        handleJoystickMove(e);
+window.addEventListener('pointerdown', e => {
+    if (!GAME_STATE.isRunning) return;
+    if (e.target.tagName === 'BUTTON') return; // Do not interrupt main setup buttons
+
+    const rect = joystickZone.getBoundingClientRect();
+    const jCenterX = rect.left + rect.width / 2;
+    const jCenterY = rect.top + rect.height / 2;
+
+    const dx = e.clientX - jCenterX;
+    const dy = e.clientY - jCenterY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If the touch falls near the joystick zone boundary, bind it to movement
+    if (distance <= rect.width / 2 + 40 && joystickPointerId === null) {
+        joystickPointerId = e.pointerId;
+        stickCenter = { x: jCenterX, y: jCenterY };
+        handleJoystickCalculation(e);
+    } 
+    // Otherwise, treat it as a look drag action anywhere else on the screen
+    else if (lookPointerId === null) {
+        lookPointerId = e.pointerId;
+        lastLookX = e.clientX;
+        lastLookY = e.clientY;
     }
 });
 
-const releaseJoystick = e => {
-    if(e.pointerId === joystickPointerId) {
-        e.preventDefault();
+window.addEventListener('pointermove', e => {
+    if (e.pointerId === joystickPointerId) {
+        handleJoystickCalculation(e);
+    } else if (e.pointerId === lookPointerId) {
+        const dx = e.clientX - lastLookX;
+        const dy = e.clientY - lastLookY;
+
+        lookEuler.y -= dx * 0.005;
+        lookEuler.x -= dy * 0.005;
+        lookEuler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, lookEuler.x));
+
+        lastLookX = e.clientX;
+        lastLookY = e.clientY;
+    }
+});
+
+const clearPointerTracking = e => {
+    if (e.pointerId === joystickPointerId) {
         joystickPointerId = null;
         knob.style.transform = `translate(-50%, -50%)`;
         moveVector.set(0, 0, 0);
-    }
-};
-zone.addEventListener('pointerup', releaseJoystick);
-zone.addEventListener('pointercancel', releaseJoystick);
-
-function handleJoystickMove(e) {
-    let dx = e.clientX - stickCenter.x;
-    let dy = e.clientY - stickCenter.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const maxDist = 40;
-    const clampDist = Math.min(dist, maxDist);
-    const angle = Math.atan2(dy, dx);
-    
-    knob.style.transform = `translate(calc(-50% + ${Math.cos(angle)*clampDist}px), calc(-50% + ${Math.sin(angle)*clampDist}px))`;
-    
-    const intensity = clampDist / maxDist;
-    moveVector.set(Math.cos(angle) * intensity, 0, Math.sin(angle) * intensity);
-}
-
-// Touch Screen Look API Tracking
-const lookZone = document.getElementById('look-zone');
-let lookPointerId = null;
-let lastPointerX = 0;
-let lastPointerY = 0;
-
-lookZone.addEventListener('pointerdown', e => {
-    if(lookPointerId === null) {
-        e.preventDefault();
-        lookPointerId = e.pointerId;
-        lookZone.setPointerCapture(e.pointerId);
-        lastPointerX = e.clientX;
-        lastPointerY = e.clientY;
-    }
-});
-
-lookZone.addEventListener('pointermove', e => {
-    if(e.pointerId === lookPointerId) {
-        e.preventDefault();
-        const dx = e.clientX - lastPointerX;
-        const dy = e.clientY - lastPointerY;
-        
-        lookEuler.y -= dx * 0.005;
-        lookEuler.x -= dy * 0.005;
-        lookEuler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, lookEuler.x));
-        
-        lastPointerX = e.clientX;
-        lastPointerY = e.clientY;
-    }
-});
-
-const releaseLook = e => {
-    if(e.pointerId === lookPointerId) {
-        e.preventDefault();
+    } else if (e.pointerId === lookPointerId) {
         lookPointerId = null;
     }
 };
-lookZone.addEventListener('pointerup', releaseLook);
-lookZone.addEventListener('pointercancel', releaseLook);
+
+window.addEventListener('pointerup', clearPointerTracking);
+window.addEventListener('pointercancel', clearPointerTracking);
+
+function handleJoystickCalculation(e) {
+    let dx = e.clientX - stickCenter.x;
+    let dy = e.clientY - stickCenter.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = 40;
+    const clampDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(dy, dx);
+
+    knob.style.transform = `translate(calc(-50% + ${Math.cos(angle) * clampDist}px), calc(-50% + ${Math.sin(angle) * clampDist}px))`;
+
+    const intensity = clampDist / maxDist;
+    moveVector.set(Math.cos(angle) * intensity, 0, Math.sin(angle) * intensity);
+}
 
 /**
  * STATIC SNIFFER UI
@@ -504,7 +486,6 @@ function update(delta) {
     let speed = 4.0 * delta;
     let velocity = new THREE.Vector3();
     
-    // Seamlessly blend keyboard input and touch vectors without blocking either approach
     if(keys.w) velocity.z -= 1;
     if(keys.s) velocity.z += 1;
     if(keys.a) velocity.x -= 1;
@@ -512,7 +493,7 @@ function update(delta) {
 
     if(velocity.lengthSq() > 0) {
         velocity.normalize().multiplyScalar(speed);
-    } else {
+    } else if (moveVector.lengthSq() > 0) {
         velocity.copy(moveVector).multiplyScalar(speed);
     }
 
@@ -616,7 +597,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
     initAudio();
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     
-    // Only fire pointer lock API mechanics if touch environments are absent
+    // Only lock pointer API on pure desktop monitors without touch inputs
     if (!('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
         document.body.requestPointerLock();
     }
