@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Backrooms: Level 0 (Optimized)</title>
+    <title>The Backrooms: Level 0 (Optimized & Enhanced)</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -116,13 +116,12 @@ const GAME_STATE = {
 let audioCtx;
 const canvas = document.getElementById('gameCanvas');
 
-// Performance Tuning: powerPreference & antialias parameters optimized
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped ratio for performance stability
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x161511, 0.06); 
+scene.fog = new THREE.FogExp2(0x161511, 0.08); // Thicker fog for realism
 renderer.setClearColor(scene.fog.color);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 45);
@@ -163,6 +162,11 @@ const vhsMaterial = new THREE.ShaderMaterial({
 
         void main() {
             vec2 uv = vUv;
+            
+            // Vignette effect
+            float dist = distance(uv, vec2(0.5));
+            float vignette = smoothstep(0.8, 0.3, dist);
+
             float r = texture2D(tDiffuse, vec2(uv.x + distortionAmount, uv.y)).r;
             vec2 gb = texture2D(tDiffuse, uv).gb;
 
@@ -170,7 +174,7 @@ const vhsMaterial = new THREE.ShaderMaterial({
             float noise = (rand(uv * time) - 0.5) * 0.02;
 
             vec3 color = vec3(r, gb.x, gb.y) - scanline + noise;
-            gl_FragColor = vec4(color, 1.0);
+            gl_FragColor = vec4(color * vignette, 1.0);
         }
     `
 });
@@ -208,7 +212,6 @@ function createCarpetTexture() {
 const wallTex = createWallpaperTexture();
 const carpetTex = createCarpetTexture();
 
-// Performance Optimization: Replaced MeshStandardMaterial with fast MeshLambertMaterial
 const wallMat = new THREE.MeshLambertMaterial({ map: wallTex }); 
 const floorMat = new THREE.MeshLambertMaterial({ map: carpetTex }); 
 const ceilMat = new THREE.MeshLambertMaterial({ color: 0xbfb699 });
@@ -250,7 +253,6 @@ for(let x = -mazeSize/2; x < mazeSize/2; x++) {
             scene.add(wall);
             walls.push(new THREE.Box3().setFromObject(wall));
         } else if (!isNearExit && Math.random() < 0.08) {
-            // FIXED: Ceiling meshes and light sources are now strictly paired and aligned
             const fixture = new THREE.Mesh(lightFixtGeo, lightFixtureMat);
             fixture.position.set(x * cellSize, 3.96, z * cellSize);
             scene.add(fixture);
@@ -297,15 +299,29 @@ const escapeThresholdBox = new THREE.Box3(
 const faceCanvas = document.createElement('canvas'); faceCanvas.width = 128; faceCanvas.height = 128;
 const fCtx = faceCanvas.getContext('2d');
 fCtx.fillStyle = '#000000'; fCtx.fillRect(0, 0, 128, 128);
-fCtx.fillStyle = '#ffffff'; fCtx.beginPath(); fCtx.arc(40, 50, 6, 0, Math.PI * 2); fCtx.arc(88, 50, 6, 0, Math.PI * 2); fCtx.fill();
-fCtx.strokeStyle = '#ffffff'; fCtx.lineWidth = 3; fCtx.beginPath(); fCtx.arc(64, 60, 35, 0.1 * Math.PI, 0.9 * Math.PI); fCtx.stroke();
+
+// Scarier, hollow glowing eyes
+fCtx.fillStyle = '#ffffff'; 
+fCtx.beginPath(); fCtx.ellipse(35, 45, 10, 16, 0, 0, Math.PI * 2); fCtx.fill();
+fCtx.beginPath(); fCtx.ellipse(93, 45, 10, 16, 0, 0, Math.PI * 2); fCtx.fill();
+fCtx.fillStyle = '#000000'; // Pupil cutouts
+fCtx.beginPath(); fCtx.arc(35, 45, 4, 0, Math.PI * 2); fCtx.fill();
+fCtx.beginPath(); fCtx.arc(93, 45, 4, 0, Math.PI * 2); fCtx.fill();
+
+// Jagged, distorted smile
+fCtx.strokeStyle = '#ffffff'; fCtx.lineWidth = 4; fCtx.lineJoin = 'round';
+fCtx.beginPath();
+fCtx.moveTo(20, 70);
+fCtx.lineTo(35, 90); fCtx.lineTo(50, 75); fCtx.lineTo(64, 95);
+fCtx.lineTo(78, 75); fCtx.lineTo(93, 90); fCtx.lineTo(108, 70);
+fCtx.stroke();
 
 const smilerMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(faceCanvas), transparent: true, blending: THREE.AdditiveBlending }); 
 const smiler = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), smilerMat);
 smiler.position.set(12, 1.3, -12);
 scene.add(smiler);
 
-let smilerState = 'HIDDEN'; let smilerCooldown = 0;
+let smilerState = 'HIDDEN';
 
 /**
  * MOBILE & DESKTOP CONTROLS
@@ -371,37 +387,54 @@ function handleJoystickCalculation(e) {
     moveVector.set(Math.cos(angle) * joystickRawIntensity, 0, Math.sin(angle) * joystickRawIntensity);
 }
 
-const flashLight = new THREE.SpotLight(0xfffae6, 3.5, 30, Math.PI/4.5, 0.6, 1.2);
+const flashLight = new THREE.SpotLight(0xfffae6, 3.5, 30, Math.PI/4.5, 0.8, 1.2); // Increased penumbra for softer, realistic light
 camera.add(flashLight, flashLight.target);
 flashLight.target.position.set(0, 0, -1);
 
 
 function initAudio() {
- audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
- const humOsc = audioCtx.createOscillator();
- const humGain = audioCtx.createGain();
- humOsc.type = 'sawtooth';
- humOsc.frequency.value = 58;
- humGain.gain.value = 0.015;
- humOsc.connect(humGain);
- humGain.connect(audioCtx.destination);
- humOsc.start();
+    const humOsc = audioCtx.createOscillator();
+    const humGain = audioCtx.createGain();
+    humOsc.type = 'sawtooth';
+    humOsc.frequency.value = 58;
+    humGain.gain.value = 0.015;
+    humOsc.connect(humGain);
+    humGain.connect(audioCtx.destination);
+    humOsc.start();
 
- setInterval(()=>{
-   if(!GAME_STATE.isRunning) return;
-   const osc = audioCtx.createOscillator();
-   const gain = audioCtx.createGain();
-   osc.type='triangle';
-   osc.frequency.value = 80 + Math.random()*120;
-   gain.gain.value = 0.01;
-   osc.connect(gain);
-   gain.connect(audioCtx.destination);
-   osc.start();
-   osc.stop(audioCtx.currentTime + 0.15);
- },7000 + Math.random()*5000);
+    setInterval(()=>{
+        if(!GAME_STATE.isRunning) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type='triangle';
+        osc.frequency.value = 80 + Math.random()*120;
+        gain.gain.value = 0.01;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    }, 7000 + Math.random()*5000);
 }
 
+function playFootstep() {
+    if(!audioCtx || !GAME_STATE.isRunning) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(45, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+    
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    
+    osc.connect(gain); 
+    gain.connect(audioCtx.destination);
+    osc.start(); 
+    osc.stop(audioCtx.currentTime + 0.1);
+}
 
 /**
  * GAME OVER TERMINATION LOGIC
@@ -425,10 +458,31 @@ function triggerEscape() {
 }
 
 /**
+ * AI LINE OF SIGHT CHECKER
+ */
+function hasLineOfSight(pos1, pos2) {
+    const dir = new THREE.Vector3().subVectors(pos2, pos1);
+    const dist = dir.length();
+    dir.normalize();
+    
+    // Create a ray from entity to player
+    const ray = new THREE.Ray(pos1, dir);
+    for(let i = 0; i < walls.length; i++) {
+        const intersect = ray.intersectBox(walls[i], new THREE.Vector3());
+        // If it hits a wall and the wall is closer than the player, vision is blocked
+        if (intersect && pos1.distanceTo(intersect) < dist) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * RUNTIME GAME LOOP
  */
 const clock = new THREE.Clock();
 const playerRadius = 0.4;
+let lastStepTime = 0;
 
 function checkCollision(pos) {
     const pBox = new THREE.Box3(
@@ -442,7 +496,6 @@ function checkCollision(pos) {
 function update(delta) {
     GAME_STATE.time += delta;
 
-    // HUD Text formatting updates
     const mins = Math.floor(GAME_STATE.time / 60).toString().padStart(2, '0');
     const secs = Math.floor(GAME_STATE.time % 60).toString().padStart(2, '0');
     document.getElementById('timecode').innerText = `${mins}:${secs}:${Math.floor((GAME_STATE.time % 1) * 100).toString().padStart(2, '0')}`;
@@ -475,12 +528,18 @@ function update(delta) {
     if(!checkCollision(new THREE.Vector3(newPos.x, camContainer.position.y, camContainer.position.z))) camContainer.position.x = newPos.x;
     if(!checkCollision(new THREE.Vector3(camContainer.position.x, camContainer.position.y, newPos.z))) camContainer.position.z = newPos.z;
 
+    // Head bobbing and footstep triggers
     if(velocity.lengthSq() > 0.0001) {
-        camera.position.y = Math.sin(GAME_STATE.time * (isSprinting ? 14 : 9)) * (isSprinting ? 0.12 : 0.05);
-        camera.position.x = Math.cos(GAME_STATE.time * (isSprinting ? 7 : 4)) * 0.015;
+        camera.position.y = Math.sin(GAME_STATE.time * (isSprinting ? 14 : 9)) * (isSprinting ? 0.12 : 0.06);
+        camera.position.x = Math.cos(GAME_STATE.time * (isSprinting ? 7 : 4.5)) * 0.02;
+        
+        let stepInterval = isSprinting ? 0.3 : 0.55;
+        if (GAME_STATE.time - lastStepTime > stepInterval) {
+            playFootstep();
+            lastStepTime = GAME_STATE.time;
+        }
     }
 
-    // Performance Optimization: Reduced flickering loops
     if (Math.random() > 0.95) {
         scene.traverse(child => {
             if(child.isPointLight && child.userData.flicker) child.intensity = Math.random() > 0.8 ? 0 : 0.85;
@@ -495,42 +554,45 @@ function update(delta) {
     }
     document.getElementById('battery-ui').innerText = `PWR: ${Math.floor(GAME_STATE.power)}%`;
 
-    // Victory Check
     if (escapeThresholdBox.containsPoint(camContainer.position)) { triggerEscape(); return; }
 
-    // Smiler Logic & Rubberband Correction
+    // Smiler Logic & Line of Sight
     const distToSmiler = camContainer.position.distanceTo(smiler.position);
     
-if ((distToSmiler > 20.0 && Math.random() > 0.995) || distToSmiler > 32.0) {
-
+    if ((distToSmiler > 20.0 && Math.random() > 0.995) || distToSmiler > 35.0) {
         let ang = Math.random() * Math.PI * 2;
         smiler.position.set(camContainer.position.x + Math.cos(ang)*14, 1.3, camContainer.position.z + Math.sin(ang)*14);
     }
 
     const dirToSmiler = new THREE.Vector3().subVectors(smiler.position, camContainer.position).normalize();
-    const dot = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).dot(dirToSmiler);
     
-    if (dot > 0.8 && distToSmiler < 20 && GAME_STATE.isFlashlightOn) smilerState = 'FREEZE';
-    else if (distToSmiler < 10) smilerState = 'CHARGE';
-    else smilerState = 'STALK';
+    // Check if the Smiler can actually see you
+    const seesPlayer = hasLineOfSight(smiler.position, camContainer.position);
 
-    if (smilerState !== 'FREEZE') {
-        let mSpeed = smilerState === 'CHARGE' ? 2.6 : 0.7;
+    if (seesPlayer) {
+        // High-speed aggressive tracking when in line of sight
+        smilerState = 'CHARGE';
+        let mSpeed = isSprinting ? 4.9 : 3.5; // Matches or outpaces the player slightly
         smiler.position.add(dirToSmiler.multiplyScalar(-mSpeed * delta));
+        smiler.lookAt(camContainer.position);
+    } else {
+        // Slow stalk when blocked by walls
+        smilerState = 'STALK';
+        smiler.position.add(dirToSmiler.multiplyScalar(-1.2 * delta));
         smiler.lookAt(camContainer.position);
     }
 
+    if(distToSmiler < 6){
+        smiler.scale.setScalar(1 + Math.sin(GAME_STATE.time*25)*0.08);
+        vhsMaterial.uniforms.distortionAmount.value = 0.01;
+    }
     
-if(distToSmiler < 6){
- smiler.scale.setScalar(1 + Math.sin(GAME_STATE.time*25)*0.08);
- vhsMaterial.uniforms.distortionAmount.value = 0.01;
-}
-if (distToSmiler < 1.8) {
-        GAME_STATE.health = Math.max(0, GAME_STATE.health - delta * 40.0);
+    if (distToSmiler < 1.8) {
+        GAME_STATE.health = Math.max(0, GAME_STATE.health - delta * 50.0); // Kills faster
     }
     document.getElementById('health-fill').style.width = `${GAME_STATE.health}%`;
 
-    vhsMaterial.uniforms.distortionAmount.value = 0.001 + (100 - GAME_STATE.health) * 0.0002;
+    vhsMaterial.uniforms.distortionAmount.value = 0.001 + (100 - GAME_STATE.health) * 0.0003;
     vhsMaterial.uniforms.time.value = GAME_STATE.time;
     flashLight.target.updateMatrixWorld();
 
